@@ -16,6 +16,15 @@ simultaneously recorded neurons even in the face of high firing rates.
 
 ### Installation
 
+#### Dependancies
+    
+conda create --name fbp
+  
+conda install conda-forge::pyopencl defaults::scipy defaults::numpy defaults::matplotlib defaults::cython defaults::psutil
+  
+pip install -e spikesorting_fullpursuit
+  
+  
 #### Requirements
 This package depends on the numpy and scipy python packages. The easiest way
 to ensure the majority of package requirements are met is to install via the ANACONDA
