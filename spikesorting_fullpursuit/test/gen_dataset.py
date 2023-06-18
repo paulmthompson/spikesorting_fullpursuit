@@ -65,7 +65,7 @@ class TestTetrode(electrode.AbstractProbe):
         start = 0
         stop = 4
 
-        return np.arange(start, stop)
+        return np.arange(start, stop, dtype=np.int64)
 
 
 class TestProbe(electrode.AbstractProbe):
@@ -82,7 +82,7 @@ class TestProbe(electrode.AbstractProbe):
         start = max(channel - 2, 0)
         stop = min(channel + 3, self.num_channels)
 
-        return np.arange(start, stop)
+        return np.arange(start, stop, dtype=np.int64)
 
 
 class TestDataset(object):

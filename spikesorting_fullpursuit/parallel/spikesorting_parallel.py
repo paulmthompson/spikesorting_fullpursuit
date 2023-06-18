@@ -1016,6 +1016,7 @@ def spike_sort_parallel(Probe, **kwargs):
     if type(check_neighbors) != np.ndarray:
         raise ValueError("Probe get_neighbors() method must return a numpy ndarray of dtype np.int64.")
     elif check_neighbors.dtype != np.int64:
+        print (check_neighbors.dtype)
         raise ValueError("Probe get_neighbors() method must return a numpy ndarray of dtype np.int64.")
     elif np.any(np.diff(check_neighbors) <= 0):
         raise ValueError("Probe get_neighbors() method must return neighbor channels IN ORDER without duplicates.")
