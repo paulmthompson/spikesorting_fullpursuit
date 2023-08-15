@@ -30,4 +30,4 @@ jobs:
     
     - name: Build
       run: |
-        pip install -e spikesorting_fullpursuit
+        pip install -e .
