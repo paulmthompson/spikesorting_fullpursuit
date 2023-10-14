@@ -1,3 +1,5 @@
+![build](https://github.com/paulmthompson/spikesorting_fullpursuit/actions/workflows/build.yml/badge.svg)
+
 ## Spike Sorting Full Binary Pursuit
 
 This package provides a neural spike sorting algorithm implementation as described
@@ -23,67 +25,6 @@ conda create --name fbp
 conda install conda-forge::pyopencl defaults::scipy defaults::numpy defaults::matplotlib defaults::cython defaults::psutil
   
 pip install -e spikesorting_fullpursuit
-  
-  
-#### Requirements
-This package depends on the numpy and scipy python packages. The easiest way
-to ensure the majority of package requirements are met is to install via the ANACONDA
-source and API. Additional requirements not part of the standard Anaconda install
-are pyopencl, and the multiprocessing library, all of which are freely available
-and installable via the Anaconda API. The cython package was used to generate
-C code extensions included in the c_cython sub-package and would be required for
-modifications to these files.
-
-A GPU is required to run the binary pursuit algorithm via pyopencl. This step
-can be tricky and depends on specific hardware/firmware/software configurations.
-We give brief guidance here, but can offer little help otherwise. You may need
-to install an OpenCL driver for your specific GPU in order for it to work with
-OpenCL. Depending on the age of your machine and/or GPU, it may be the case that
-you need to choose to install an older version of pyopencl. The oldest case we
-tested was pyopencl version 2019.1.2. Running time consuming processes on a
-Windows OS can result in the OS terminating the process and crashing the
-program due to the Windows Timeout Detection & Recovery (TDR). The solution is
-usually to alter the tdr registry keys in the Windows OS such as TdrDelay as
-described here:
-https://learn.microsoft.com/en-us/windows-hardware/drivers/display/tdr-registry-keys
-Other instructions can usually be found from specific GPU manufacturers, but
-specifics for your hardware may be relevant.
-
-Memory usage is very high especially for large files and floating point values.
-The opencl GPU code generally only handles up to float32 and so it makes the
-most sense to input numpy voltage arrays as datatype "np.float32". Operations
-such as filtering and especially Wiener filter increase this memory use and
-again mitigates toward float32 being used. The arrays of spike clips are often
-copied and can become similarly large. Total processing for 16 channel recording
-running ~14 processes with tens of thousands of spikes can easily consume on
-the order of 200 GB of RAM.
-
-#### UPDATED numpy memmap to reduce memory consumption
-The total memory usage will always depend on the segment duration, number
-of threshold crossings identified in a segment, and the number of simultaneous
-processes that are run. Minimally, with 'use_memmap'=True, all voltage segments
-are held in memory for the processes that are currently clustering them. In the
-worst case, this is [ (num processes) x (bytes in 1 voltage segment) ]. Each
-process holds its own set of clips which can be memory mapped as well. Fitting
-of clips is performed in memory for a subsampling of clips (default 1e5) to
-reduce memory load. These also require copying in memory for PCA compuation.
-All clips are output in memory in PCA space, requiring a [ (num clips) x
-(num principal components selected) ] data matrix in memory for each process.
-Wiener filtering is done 1 segment at a time, but requires creating 5
-additional arrays equal in size to 1 segment of voltage and all the spike clips
-for a single channel discovered in that segment. This step is done
-in memory for improved processing speed because it is unlikely to consume
-more memory than the clustering step across multiple processes.
-
-The most recent version of pyopencl can be installed with conda using:  
-```
-conda install -c conda-forge pyopencl
-```
-
-Older versions can be installed by specifying the version. e.g.:  
-```
-conda install -c conda-forge pyopencl=2019.1.2
-```
 
 A simple test to see whether pyopencl can detect your graphics card is to run:  
 ```
@@ -96,21 +37,6 @@ for platform in platforms:
 If successful this should print the name of your GPU(s). If multiple GPUs are
 detected, the current code searches for the one with greatest memory for use.
 This can be checked or modified in binary_pursuit_parallel.py ~lines 221-231.
-
-#### Install package
-Copy the remote git repository locally, for example with:
-```
-git clone https://github.com/njh27/spikesorting_fullpursuit.git
-```
-Navigate to the directory containing the package spikesorting_fullpursuit (the
-	directory where the clone command above was executed). Type:  
-```
-pip install -e spikesorting_fullpursuit
-```
-If successful, you should now be able to import the package in python using:
-```
-import spikesorting_fullpursuit
-```
 
 ### Testing with demos
 Basic usage is shown in the scripts and Jupyter notebook provided in "demos". Successfully running
