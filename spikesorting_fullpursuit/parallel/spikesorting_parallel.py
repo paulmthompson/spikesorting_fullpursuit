@@ -149,6 +149,15 @@ def print_mem_usage(num=None):
 
 
 def single_thresholds(voltage, sigma):
+    """
+    
+    Args:
+        voltage (np.ndarray): Voltage array with shape (num_channels, num_samples)
+        sigma (float): Number of standard deviations to use for thresholding
+
+    Returns:
+        thresholds (np.ndarray): Thresholds for each channel (num_channels,)
+    """
     if voltage.ndim == 1:
         voltage = np.expand_dims(voltage, 0)
     num_channels = voltage.shape[0]
@@ -161,6 +170,16 @@ def single_thresholds(voltage, sigma):
 
 
 def single_thresholds_and_samples(voltage, sigma):
+    """
+    
+    Args:
+        voltage (np.ndarray): Voltage array with shape (num_channels, num_samples)
+        sigma (float): Number of standard deviations to use for thresholding
+
+    Returns:
+        thresholds (np.ndarray): Thresholds for each channel (num_channels,)
+        samples_over_thresh (list): Number of samples over threshold for each channel (num_channels,)
+    """
     if voltage.ndim == 1:
         voltage = np.expand_dims(voltage, 0)
     num_channels = voltage.shape[0]

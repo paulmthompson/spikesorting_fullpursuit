@@ -370,7 +370,7 @@ def binary_pursuit(voltage, v_dtype, sort_info,
         # Loop over chunks
         for chunk_number, start_index in enumerate(chunk_onsets):
             stop_index = np.uint32(min(n_samples, start_index + num_indices_per_chunk))
-            print("Starting chunk number", chunk_number+1, "from", start_index, "to", stop_index, "samples", flush=True)
+            print("Starting chunk number", chunk_number+1,"/",len(chunk_onsets),"from", start_index, "to", stop_index, "samples", flush=True)
             chunk_voltage = np.float32(voltage[:, start_index:stop_index])
             chunk_voltage_length = np.uint32(stop_index - start_index)
             # Reshape voltage over channels into a single 1D vector
