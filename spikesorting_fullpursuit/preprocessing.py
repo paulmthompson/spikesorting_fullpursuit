@@ -104,9 +104,19 @@ def get_full_zca_matrix(data, rowvar=True):
 def get_noise_sampled_zca_matrix(voltage_data, thresholds, sigma, thresh_cushion,
                                  n_samples=1e6):
     """
-        The ZCA procedure was taken (and reformatted into 2 lines) from:
-        https://github.com/zellyn/deeplearning-class-2011/blob/master/ufldl/pca_2d/pca_2d.py
-        """
+    The ZCA procedure was taken (and reformatted into 2 lines) from:
+    https://github.com/zellyn/deeplearning-class-2011/blob/master/ufldl/pca_2d/pca_2d.py
+
+    Args:
+        voltage_data: (n_channels, n_samples) array of voltage data
+        thresholds: (n_channels, ) array of thresholds for each channel
+        sigma: (n_channels, ) array of sigma values for each channel
+        thresh_cushion: number of samples to add to each side of threshold crossing
+        n_samples: number of samples to use for computing ZCA matrix
+
+    Returns:
+        zca_matrix: (n_channels, n_channels) matrix for ZCA whitening
+    """
     if voltage_data.ndim == 1:
         return 1.
     zca_thresholds = np.copy(thresholds)

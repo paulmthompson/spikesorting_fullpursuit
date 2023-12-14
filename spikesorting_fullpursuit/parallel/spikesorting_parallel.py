@@ -219,9 +219,20 @@ def init_zca_voltage_mmap(seg_voltages):
 
 
 def parallel_zca_and_threshold(seg_num, sigma, zca_cushion, n_samples):
-    """ Multiprocessing wrapper for single_thresholds_and_samples and
+    """ 
+    Multiprocessing wrapper for single_thresholds_and_samples and
     preprocessing.get_noise_sampled_zca_matrix to get the ZCA voltage for each
-    segment in parallel. """
+    segment in parallel. 
+
+    Args:
+        seg_num
+        sigma (float): Number of standard deviations to use for thresholding
+        zca_cushion (int): Number of samples to pad around each threshold crossing for ZCA whitening
+                        By default, this is 2 * the largest absolute value of the clip width
+        n_samples (int): Number of noise samples to use for ZCA whitening
+
+    Global variables:
+    """
     mkl.set_num_threads(1) # Only 1 thread per process
     # Get shared raw array voltage as numpy view
     seg_voltage = np.frombuffer(zca_pool_dict['share_voltage'][seg_num][0],
@@ -245,16 +256,27 @@ def parallel_zca_and_threshold(seg_num, sigma, zca_cushion, n_samples):
 
 
 def parallel_zca_and_threshold_mmap(seg_num, sigma, zca_cushion, n_samples):
-    """ Multiprocessing wrapper for single_thresholds_and_samples and
+    """ 
+    Multiprocessing wrapper for single_thresholds_and_samples and
     preprocessing.get_noise_sampled_zca_matrix to get the ZCA voltage for each
-    segment in parallel. """
+    segment in parallel. 
+
+    Args:
+        seg_num
+        sigma (float): Number of standard deviations to use for thresholding
+        zca_cushion (int): Number of samples to pad around each threshold crossing for ZCA whitening
+                        By default, this is 2 * the largest absolute value of the clip width
+        n_samples (int): Number of noise samples to use for ZCA whitening
+
+    Global variables:
+    """
     mkl.set_num_threads(1) # Only 1 thread per process
     # Get shared raw array voltage as numpy view
     seg_voltage_mmap = MemMapClose(zca_pool_dict['share_voltage'][seg_num][0],
                             dtype=zca_pool_dict['share_voltage'][seg_num][1],
                             mode='r+',
                             shape=zca_pool_dict['share_voltage'][seg_num][2])
-    # Copy to memory cause ZCA selction/indexing is crazy
+    # Copy to memory cause ZCA selection/indexing is crazy
     seg_voltage = segment_parallel.memmap_to_mem(seg_voltage_mmap)
     # Plug numpy memmap view into required functions
     thresholds = single_thresholds(seg_voltage, sigma)
@@ -278,7 +300,16 @@ def parallel_zca_and_threshold_mmap(seg_num, sigma, zca_cushion, n_samples):
 
 def threshold_and_zca_voltage_parallel(seg_voltages, sigma, zca_cushion,
                                         n_samples=1e6, use_memmap=False):
-    """ Use parallel processing to get thresholds and ZCA voltage for each segment
+    """ 
+    Use parallel processing to get thresholds and ZCA voltage for each segment
+
+    Args:
+        seg_voltages (list): List of numpy arrays with shape (num_channels, num_samples). One array per segment.
+        sigma (float): Number of standard deviations to use for thresholding
+        zca_cushion (int): Number of samples to pad around each threshold crossing for ZCA whitening
+                        By default, this is 2 * the largest absolute value of the clip width
+        n_samples (int): Number of noise samples to use for ZCA whitening
+        use_memmap (bool): If True, use memmap files to store voltages and ZCA matrices. Otherwise use shared multiprocessing arrays.
     """
     n_threads = mkl.get_max_threads() # Incoming number of threads
     n_processes = psutil.cpu_count(logical=True) # Use maximum processors
