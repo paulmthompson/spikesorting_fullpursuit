@@ -1,10 +1,8 @@
 import numpy as np
 from scipy.stats import norm
-from spikesorting_fullpursuit.sort import merge_clusters, initial_cluster_farthest
+from spikesorting_fullpursuit.sort import merge_clusters
 from spikesorting_fullpursuit import preprocessing
 from spikesorting_fullpursuit.analyze_spike_timing import remove_spike_event_duplicates
-
-import matplotlib.pyplot as plt
 
 
 
@@ -404,7 +402,10 @@ class SegSummary(object):
         scores = np.float64(scores)
         neuron_labels = merge_clusters(scores, orig_neuron_labels,
                             split_only=False, merge_only=False,
-                            p_value_cut_thresh=self.sort_info['p_value_cut_thresh'])
+                            p_value_cut_thresh=self.sort_info['p_value_cut_thresh'],
+                            match_cluster_size=self.sort_info['match_cluster_size'], 
+                            check_splits=self.sort_info['check_splits'],
+                            )
 
         curr_labels, n_per_label = np.unique(neuron_labels, return_counts=True)
         if curr_labels.size == 1:
@@ -458,7 +459,10 @@ class SegSummary(object):
         scores = np.float64(scores)
         neuron_labels = merge_clusters(scores, neuron_labels,
                             split_only=split_only, merge_only=merge_only,
-                            p_value_cut_thresh=p_cut, flip_labels=False)
+                            p_value_cut_thresh=p_cut,
+                            match_cluster_size=self.sort_info['match_cluster_size'], 
+                            check_splits=self.sort_info['check_splits'],
+                            )
 
         label_is_1 = neuron_labels == 1
         label_is_2 = neuron_labels == 2

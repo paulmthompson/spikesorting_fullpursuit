@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import linalg as la
-from scipy.fftpack import dct, idct, fft, ifft
-from scipy.optimize import fsolve, fminbound
+from scipy.fftpack import dct, fft, ifft
+from sklearn.neighbors import BallTree
 from spikesorting_fullpursuit import isotonic
 from spikesorting_fullpursuit.c_cython import sort_cython
 from spikesorting_fullpursuit import multinomial_gof
@@ -411,7 +411,7 @@ Explanation of parameters:
 """
 def merge_clusters(data, labels, p_value_cut_thresh=0.01, whiten_clusters=True,
                    merge_only=False, split_only=False, max_iter=20000,
-                   flip_labels=True, verbose=False):
+                   match_cluster_size=False, check_splits=False, verbose=False):
 
     def whiten_cluster_pairs(scores, labels, c1, c2):
         centroid_1 = sort_cython.compute_cluster_centroid(scores, labels, c1)
@@ -423,17 +423,54 @@ def merge_clusters(data, labels, p_value_cut_thresh=0.01, whiten_clusters=True,
             V = np.matmul(V, inv_average_covariance)
 
         return V
+    
+    def create_matched_cluster(scores, labels, c1, c2):
+        """ Finds the smallest and largest cluster of the labels c1 and c2. Then chooses a matched number of points from
+        the larger cluster that are nearest the smallest cluster centroid. These are assigned a new label (the maximum
+        value of a numpy.int64) so that merge and isocut can be performed on this matched subset of nearest points. Returns
+        the label of the smallest cluster input and the new cluster.
+        """
+        # Use an output label equal to the maximum integer value, assuming there are not nearly this many labels used in "labels"
+        matched_label = np.iinfo(np.int64).max
+        if np.count_nonzero(labels == c1) >= np.count_nonzero(labels == c2):
+            larger_cluster = c1
+            smaller_cluster = c2
+        else:
+            larger_cluster = c2
+            smaller_cluster = c1
+        small_centroid = sort_cython.compute_cluster_centroid(scores, labels, smaller_cluster)
+        n_small = np.count_nonzero(labels == smaller_cluster)
+        select_large = labels == larger_cluster
+        indices_large = np.where(select_large)[0]
+        large_distances = np.sum((scores[select_large, :] - small_centroid) ** 2, axis=1)
+        large_order = np.argsort(large_distances)[0:n_small]
+        # Give the n_small nearest points from the large cluster a new label
+        labels[indices_large[large_order]] = matched_label
+
+        return smaller_cluster, matched_label
 
     # This helper function determines if we should perform merging of two clusters
-    # This function returns a boolean if we should merge the clusters
-    def merge_test(scores, labels, c1, c2):
+    # This function returns a boolean if we should merge the clusters, and reassigns
+    # labels in-place according to the iso_cut split otherwise
+    def merge_test(scores, labels, c1, c2, match_cluster=False, check_iso_splits=False):
+        # Save the labels so we can revert to them at the end if needed
+        original_labels = np.copy(labels)
+        if match_cluster:
+            smaller_cluster, matched_label = create_matched_cluster(scores, labels, c1, c2)
+        else:
+            if np.count_nonzero(labels == c1) >= np.count_nonzero(labels == c2):
+                matched_label = c1
+                smaller_cluster = c2
+            else:
+                matched_label = c2
+                smaller_cluster = c1
         if scores.shape[1] > 1:
             # Get V, the vector connecting the two centroids either with or without whitening
             if whiten_clusters:
-                V = whiten_cluster_pairs(scores, labels, c1, c2)
+                V = whiten_cluster_pairs(scores, labels, smaller_cluster, matched_label)
             else:
-                centroid_1 = sort_cython.compute_cluster_centroid(scores, labels, c1)
-                centroid_2 = sort_cython.compute_cluster_centroid(scores, labels, c2)
+                centroid_1 = sort_cython.compute_cluster_centroid(scores, labels, smaller_cluster)
+                centroid_2 = sort_cython.compute_cluster_centroid(scores, labels, matched_label)
                 V = centroid_2 - centroid_1
             norm_V = la.norm(V)
             if norm_V == 0:
@@ -446,8 +483,18 @@ def merge_clusters(data, labels, p_value_cut_thresh=0.01, whiten_clusters=True,
             # Can't whiten one and project one dimensional scores, they are already the
             # 1D projection
             projection = np.squeeze(np.copy(scores))
-
-        p_value, optimal_cut = iso_cut(projection[np.logical_or(labels == c1, labels == c2)], p_value_cut_thresh)
+        
+        p_value, optimal_cut = iso_cut(projection[np.logical_or(labels == smaller_cluster, labels == matched_label)], p_value_cut_thresh)
+        # Now that we have done the iso_cut test and found any cutpoints, we don't need matched labels anymore so revert
+        if smaller_cluster == c1:
+            # Larger cluster must have been c2
+            labels[labels == matched_label] = c2
+        elif smaller_cluster == c2:
+            # Larger cluster must have been c1
+            labels[labels == matched_label] = c1
+        else:
+            # I must have made a horrible mistake
+            raise RuntimeError("Lost track of the labels")
         if p_value >= p_value_cut_thresh: #or np.isnan(p_value):
             # These two clusters should be combined
             if split_only:
@@ -460,39 +507,63 @@ def merge_clusters(data, labels, p_value_cut_thresh=0.01, whiten_clusters=True,
             # Reassign based on the optimal value
             select_greater = np.logical_and(np.logical_or(labels == c1, labels == c2), (projection > optimal_cut + 1e-6))
             select_less = np.logical_and(np.logical_or(labels == c1, labels == c2), ~select_greater)
-            if flip_labels:
-                # Make label with most data going in the same as that going out
-                assign_max_c1 = True if np.count_nonzero(labels == c1) >= np.count_nonzero(labels == c2) else False
-                if np.count_nonzero(select_greater) >= np.count_nonzero(select_less):
-                    if assign_max_c1:
-                        labels[select_greater] = c1
-                        labels[select_less] = c2
-                    else:
-                        labels[select_greater] = c2
-                        labels[select_less] = c1
+
+            # Get mean and distance measures for the original labels so we can check this split and assign labels
+            center_1_orig = np.mean(projection[labels == c1])
+            center_2_orig = np.mean(projection[labels == c2])
+            if check_iso_splits:
+                # We will first check how the current split alters the distances between the nearest neighboring points of clusters
+                # and if it looks bad, revert the split
+                clust1 = projection[labels == c1].reshape(-1, 1)
+                clust2 = projection[labels == c2].reshape(-1, 1)
+                if clust1.shape[0] >= clust2.shape[0]:
+                    ball_array = clust1
+                    test_array = clust2
                 else:
-                    if assign_max_c1:
-                        labels[select_greater] = c2
-                        labels[select_less] = c1
-                    else:
-                        labels[select_greater] = c1
-                        labels[select_less] = c2
-                if np.count_nonzero(labels == c1) == 0 or np.count_nonzero(labels == c2) == 0:
-                    # Our optimal split forced a merge. This can happen even with
-                    # 'split_only' set to True.
-                    return True
-                return False
+                    ball_array = clust2
+                    test_array = clust1
+                tree = BallTree(ball_array)
+                distances, _ = tree.query(test_array, k=1)
+                test_10_percent = int(np.ceil(0.10 * test_array.shape[0]))
+                raw_dist_between_orig = np.mean(np.sort(distances.ravel())[:test_10_percent])
+
+                # No that we have reassigned labels according to the split, get the new distance info
+                clust1 = projection[labels == c1].reshape(-1, 1)
+                clust2 = projection[labels == c2].reshape(-1, 1)
+                if clust1.shape[0] >= clust2.shape[0]:
+                    ball_array = clust1
+                    test_array = clust2
+                else:
+                    ball_array = clust2
+                    test_array = clust1
+                tree = BallTree(ball_array)
+                distances, _ = tree.query(test_array, k=1)
+                test_10_percent = min(test_10_percent, int(np.ceil(0.10 * test_array.shape[0])))
+                raw_dist_between_post = np.mean(np.sort(distances.ravel())[:test_10_percent])
+            else:
+                # This will force skipping the revert labels below and go straight to reassignment accordng to cut point
+                raw_dist_between_post = 1
+                raw_dist_between_orig = 0
+            
+
+            if raw_dist_between_post <= raw_dist_between_orig:
+                # If the 10% nearest neighbors are closer after split than before, this might be a bad split so undo
+                labels[:] = original_labels
             else:
                 # Reassign labels to cluster keeping label numbers that minimize
                 # projection distance between original and new center
-                original_c1 = np.median(projection[labels == c1])
-                original_c2 = np.median(projection[labels == c2])
-                if original_c1 >= original_c2:
+                if center_1_orig >= center_2_orig:
                     labels[select_greater] = c1
                     labels[select_less] = c2
                 else:
                     labels[select_greater] = c2
                     labels[select_less] = c1
+
+            if np.count_nonzero(labels == c1) == 0 or np.count_nonzero(labels == c2) == 0:
+                # Our optimal split forced a merge. This can happen even with
+                # 'split_only' set to True.
+                return True
+            return False
 
     # START ACTUAL OUTER FUNCTION
     if labels.size == 0:
@@ -524,14 +595,15 @@ def merge_clusters(data, labels, p_value_cut_thresh=0.01, whiten_clusters=True,
         if len(minimum_distance_pairs) == 0 and none_merged:
             break # Done, no more clusters to compare
         none_merged = True
-        # if len(minimum_distance_pairs) != 0:
-        #     p_value_cut_thresh = original_pval / len(minimum_distance_pairs)
         for c1, c2 in minimum_distance_pairs:
             if verbose: print("Comparing ", c1, " with ", c2)
             n_c1 = np.count_nonzero(labels == c1)
             n_c2 = np.count_nonzero(labels == c2)
-            if n_c1 > 1 or n_c2 > 1:
-                merge = merge_test(data, labels, c1, c2)
+            if ( (n_c1 > 1) and (n_c2 > 1) ):
+                # Need more than 1 spike in each matched cluster 
+                merge = merge_test(data, labels, c1, c2, match_cluster=match_cluster_size, check_iso_splits=check_splits)
+            elif ( (n_c1 > 1) or (n_c2 > 1) ):
+                merge = merge_test(data, labels, c1, c2, match_cluster=False, check_iso_splits=check_splits)
             else:
                 # c1 and c2 have one spike each so merge them (algorithm can't
                 # split in this case and they are mutually closest pairs)
@@ -833,7 +905,6 @@ def kde_builtin(data, n):
         if np.sign(f_0) != np.sign(f_tol):
             # use fzero to solve the equation t=zeta*gamma^[5](t)
             """ I am using fsolve here rather than MatLab 'fzero' """
-            # t_star = fminbound(fixed_point_abs, tol_0, tol, args=(N, I, a2))
             t_star = bound_grad_desc_fixed_point_abs(N, I, a2, tol_0, tol, 1e-6, 1e-6)
             break
         else:
@@ -842,7 +913,6 @@ def kde_builtin(data, n):
             f_0 = f_tol
         if tol == 1.0: # if all else fails
             """ Failed to find zero crossing so find absolute minimum value """
-            # t_star = fminbound(fixed_point_abs, 0, 1.0, args=(N, I, a2))
             t_star = bound_grad_desc_fixed_point_abs(N, I, a2, 0, 1.0, 1e-6, 1e-6)
             break
     # smooth the discrete cosine transform of initial data using t_star

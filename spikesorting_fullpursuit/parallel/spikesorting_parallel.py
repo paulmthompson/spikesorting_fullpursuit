@@ -1,8 +1,6 @@
-import pickle
 import os
 import sys
 sys.path.append(os.getcwd())
-from tempfile import mkdtemp
 from shutil import rmtree
 import mkl
 import numpy as np
@@ -13,7 +11,6 @@ from traceback import print_tb
 from spikesorting_fullpursuit.parallel import segment_parallel
 from spikesorting_fullpursuit import sort, preprocessing, full_binary_pursuit
 from spikesorting_fullpursuit.wiener_filter import wiener_filter_segment
-from spikesorting_fullpursuit.parallel import binary_pursuit_parallel
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 
 
@@ -24,6 +21,8 @@ def spike_sorting_settings_parallel(**kwargs):
         'sigma': 4.0, # Threshold based on noise level
         'clip_width': [-15e-4, 15e-4], # Width of clip in seconds, used for clustering. Made symmetric with largest value for binary pursuit!
         'p_value_cut_thresh': 0.01, # Statistical criterion for splitting clusters during iso-cut
+        'match_cluster_size': False, # Pairwise comparisons during isocut cluster merge testing are matched in sample size. This makes the test more robust to comparisons of small clusters with large ones but could result in an increased number of clusters
+        'check_splits': False, # Check isocut splits to ensure they are not doing anything that brings clusters closer together, which may indicate a bad cut point
         'segment_duration': 600, # Seconds (None/Inf uses the entire recording) Can be increased but not decreased by sorter to be same size
         'segment_overlap': 120, # Seconds of overlap between adjacent segments
         'do_branch_PCA': True, # Use branch PCA method to split clusters
@@ -95,7 +94,8 @@ def spike_sorting_settings_parallel(**kwargs):
                     'sort_peak_clips_only', 'get_adjusted_clips',
                     'output_separability_metrics', 'wiener_filter',
                     'same_wiener', 'use_memmap', 'save_clips', 'parallel_zca',
-                    'seg_work_order', 'remove_artifacts']:
+                    'seg_work_order', 'remove_artifacts',
+                    'match_cluster_size', 'check_splits']:
             if type(settings[key]) != bool:
                 if settings[key] != 'False' and settings[key] != 0:
                     settings[key] = True
@@ -411,7 +411,10 @@ def check_spike_alignment(clips, event_indices, neuron_labels, curr_chan_inds,
                     curr_chan_inds=np.arange(0, combined_clips.shape[1]))
         pseudo_labels = sort.merge_clusters(scores, pseudo_labels,
                             split_only = False, merge_only=True,
-                            p_value_cut_thresh=settings['p_value_cut_thresh'])
+                            p_value_cut_thresh=settings['p_value_cut_thresh'],
+                            match_cluster_size=settings['match_cluster_size'], 
+                            check_splits=settings['check_splits'],
+                            )
         if np.all(pseudo_labels == 1) or np.all(pseudo_labels == 2):
             any_merged = True
             if clips_1.shape[0] >= clips_2.shape[0]:
@@ -449,7 +452,8 @@ def check_spike_alignment(clips, event_indices, neuron_labels, curr_chan_inds,
 
 def branch_pca_2_0(neuron_labels, clips, curr_chan_inds, p_value_cut_thresh=0.01,
                     add_peak_valley=False, check_components=None,
-                    max_components=None, use_rand_init=True, method='pca'):
+                    max_components=None, use_rand_init=True, method='pca',
+                    match_cluster_size=False, check_splits=False):
     """
     """
     neuron_labels_copy = np.copy(neuron_labels)
@@ -478,7 +482,10 @@ def branch_pca_2_0(neuron_labels, clips, curr_chan_inds, p_value_cut_thresh=0.01
         n_random = max(100, np.around(clust_clips.shape[0] / 100)) if use_rand_init else 0
         clust_labels = sort.initial_cluster_farthest(scores, median_cluster_size, n_random=n_random)
         clust_labels = sort.merge_clusters(scores, clust_labels,
-                        p_value_cut_thresh=p_value_cut_thresh)
+                        p_value_cut_thresh=p_value_cut_thresh,
+                        match_cluster_size=match_cluster_size, 
+                        check_splits=check_splits,
+                        )
         new_labels = np.unique(clust_labels)
         if new_labels.size > 1:
             # Found at least one new cluster within original so reassign labels
@@ -629,7 +636,10 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             neuron_labels = sort.initial_cluster_farthest(scores, median_cluster_size, n_random=n_random)
             neuron_labels = sort.merge_clusters(scores, neuron_labels,
                                 split_only = False,
-                                p_value_cut_thresh=settings['p_value_cut_thresh'])
+                                p_value_cut_thresh=settings['p_value_cut_thresh'],
+                                match_cluster_size=settings['match_cluster_size'], 
+                                check_splits=settings['check_splits'],
+                                )
 
             curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
             if settings['verbose']: print("After first sort", curr_num_clusters.size, "different clusters", flush=True)
@@ -659,7 +669,10 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 neuron_labels = sort.initial_cluster_farthest(scores, median_cluster_size, n_random=n_random)
                 neuron_labels = sort.merge_clusters(scores, neuron_labels,
                                     split_only = False,
-                                    p_value_cut_thresh=settings['p_value_cut_thresh'])
+                                    p_value_cut_thresh=settings['p_value_cut_thresh'],
+                                    match_cluster_size=settings['match_cluster_size'], 
+                                    check_splits=settings['check_splits'],
+                                    )
 
                 curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
                 if settings['verbose']: print("After re-sort", curr_num_clusters.size, "different clusters", flush=True)
@@ -684,7 +697,10 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 neuron_labels = sort.initial_cluster_farthest(scores, median_cluster_size, n_random=n_random)
                 neuron_labels = sort.merge_clusters(scores, neuron_labels,
                                     split_only = False,
-                                    p_value_cut_thresh=settings['p_value_cut_thresh'])
+                                    p_value_cut_thresh=settings['p_value_cut_thresh'],
+                                    match_cluster_size=settings['match_cluster_size'], 
+                                    check_splits=settings['check_splits'],
+                                    )
 
             curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
         else:
@@ -730,7 +746,10 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                                 check_components=settings['check_components'],
                                 max_components=settings['max_components'],
                                 use_rand_init=settings['use_rand_init'],
-                                method='pca')
+                                method='pca',
+                                match_cluster_size=settings['match_cluster_size'], 
+                                check_splits=settings['check_splits'],
+                                )
             curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
             if settings['verbose']: print("After SINGLE BRANCH", curr_num_clusters.size, "different clusters", flush=True)
         if settings['do_branch_PCA']:
@@ -758,7 +777,10 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                                 check_components=settings['check_components'],
                                 max_components=settings['max_components'],
                                 use_rand_init=settings['use_rand_init'],
-                                method='pca')
+                                method='pca',
+                                match_cluster_size=settings['match_cluster_size'], 
+                                check_splits=settings['check_splits'],
+                                )
             curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
             if settings['verbose']: print("After MULTI BRANCH", curr_num_clusters.size, "different clusters", flush=True)
         # Multi channel branch by channel
@@ -769,7 +791,10 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                                 check_components=settings['check_components'],
                                 max_components=settings['max_components'],
                                 use_rand_init=settings['use_rand_init'],
-                                method='chan_pca')
+                                method='chan_pca',
+                                match_cluster_size=settings['match_cluster_size'], 
+                                check_splits=settings['check_splits'],
+                                )
             curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
             if settings['verbose']: print("After MULTI BRANCH by channel", curr_num_clusters.size, "different clusters", flush=True)
 
