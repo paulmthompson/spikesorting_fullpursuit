@@ -40,13 +40,13 @@ def identify_threshold_crossings(
     first_thresh_index[1:] = np.logical_and(voltage[1:] > threshold, voltage[0:-1] <= threshold)
     events = np.nonzero(first_thresh_index)[0]
     # This is the raw total number of threshold crossings
-    n_crossings = events.shape[0] #np.count_nonzero(voltage > threshold)
+    n_crossings = events.shape[0]  #np.count_nonzero(voltage > threshold)
 
     # Realign event times on min or max in align_window
     window = time_window_to_samples(align_window, sampling_rate)[0]
     for evt in range(0, events.size):
-        start = max(0, events[evt] + window[0]) # Start maximally at 0 or event plus window
-        stop = min(probe_dict['n_samples'] - 1, events[evt] + window[1])# Stop minmally at event plus window or last index
+        start = max(0, events[evt] + window[0])  # Start maximally at 0 or event plus window
+        stop = min(probe_dict['n_samples'] - 1, events[evt] + window[1])  # Stop minmally at event plus window or last index
         window_clip = chan_voltage[start:stop]
         max_index = np.argmax(window_clip)  # Gets FIRST max in window
         max_value = window_clip[max_index]
@@ -99,7 +99,7 @@ def time_window_to_samples(time_window, sampling_rate):
         new_time_window[0] *= -1
     sample_window = [0, 0]
     sample_window[0] = min(int(round(new_time_window[0] * sampling_rate)), 0)
-    sample_window[1] = max(int(round(new_time_window[1] * sampling_rate)), 1) + 1 # Add one so that last element is included
+    sample_window[1] = max(int(round(new_time_window[1] * sampling_rate)), 1) + 1  # Add one so that last element is included
 
     return sample_window, new_time_window
 
@@ -134,16 +134,22 @@ def get_windows_and_indices(
     curr_chan_win, clip_width = time_window_to_samples(clip_width, sampling_rate)
     chan_neighbor_ind = next((idx[0] for idx, val in np.ndenumerate(neighbors) if val == channel), None)
     samples_per_chan = curr_chan_win[1] - curr_chan_win[0]
-    curr_chan_inds = np.arange(samples_per_chan * chan_neighbor_ind, samples_per_chan * chan_neighbor_ind + samples_per_chan, 1)
+    curr_chan_inds = np.arange(
+        samples_per_chan * chan_neighbor_ind,
+        samples_per_chan * chan_neighbor_ind + samples_per_chan,
+        1
+        )
 
     return clip_width, chan_neighbor_ind, curr_chan_win, samples_per_chan, curr_chan_inds
 
 
 def calculate_templates(clips, neuron_labels):
-    """ 
-    Computes the median template from clips for each unique label in neuron_labels.
-    Output is a list of templates and a numpy array of the unique labels to which
-    each template corresponds. 
+    """
+    Computes the median template from clips for each unique
+    label in neuron_labels.
+
+    Output is a list of templates and a numpy array of the unique
+    labels to which each template corresponds.
     """
 
     labels = np.unique(neuron_labels)
@@ -179,15 +185,27 @@ def align_events_with_template(
     # Find indices within extra wide clips that correspond to the original clipwidth for template
     temp_index = [0, 0]
     temp_index[0] = -1 * min(int(round(clip_width[0] * sampling_rate)), 0)
-    temp_index[1] = 2 * temp_index[0] + max(int(round(clip_width[1] * sampling_rate)), 1) + 1 # Add one so that last element is included
-    clips, valid_inds = get_singlechannel_clips(probe_dict, chan_voltage, event_indices, clip_width=cc_clip_width)
+    temp_index[1] = (2 * temp_index[0]
+                     + max(int(round(clip_width[1] * sampling_rate)), 1)
+                     + 1)  # Add one so that last element is included
+
+    clips, valid_inds = get_singlechannel_clips(
+        probe_dict,
+        chan_voltage,
+        event_indices,
+        clip_width=cc_clip_width
+        )
     event_indices = event_indices[valid_inds]
     neuron_labels = neuron_labels[valid_inds]
     templates, labels = calculate_templates(clips[:, temp_index[0]:temp_index[1]], neuron_labels)
 
     # First, align all clips with their own template
     for c in range(0, clips.shape[0]):
-        cross_corr = np.correlate(clips[c, :], templates[np.nonzero(labels == neuron_labels[c])[0][0]], mode='valid')
+        cross_corr = np.correlate(
+            clips[c, :],
+            templates[np.nonzero(labels == neuron_labels[c])[0][0]],
+            mode='valid'
+            )
         event_indices[c] += np.argmax(cross_corr) - int(temp_index[0])
 
     return event_indices, neuron_labels, valid_inds
@@ -210,7 +228,12 @@ def align_events_with_best_template(
     sampling_rate = probe_dict['sampling_rate']
 
     window, clip_width = time_window_to_samples(clip_width, sampling_rate)
-    clips, valid_inds = get_singlechannel_clips(probe_dict, chan_voltage, event_indices, clip_width=clip_width)
+    clips, valid_inds = get_singlechannel_clips(
+        probe_dict,
+        chan_voltage,
+        event_indices,
+        clip_width=clip_width
+        )
     event_indices = event_indices[valid_inds]
     neuron_labels = neuron_labels[valid_inds]
     overlaps = np.zeros(event_indices.size, dtype="bool")
@@ -224,7 +247,11 @@ def align_events_with_best_template(
         best_peak = -np.inf
         best_shift = 0
         for temp_ind in range(0, len(templates)):
-            cross_corr = np.correlate(clips[c, :], templates[temp_ind], mode='full')
+            cross_corr = np.correlate(
+                clips[c, :],
+                templates[temp_ind],
+                mode='full'
+                )
             max_ind = np.argmax(cross_corr)
             if cross_corr[max_ind] > best_peak:
                 best_peak = cross_corr[max_ind]
@@ -258,7 +285,12 @@ def align_templates(
     sampling_rate = probe_dict['sampling_rate']
 
     window, clip_width = time_window_to_samples(clip_width, sampling_rate)
-    clips, valid_inds = get_singlechannel_clips(probe_dict, chan_voltage, event_indices, clip_width=clip_width)
+    clips, valid_inds = get_singlechannel_clips(
+        probe_dict,
+        chan_voltage,
+        event_indices,
+        clip_width=clip_width
+        )
     event_indices = event_indices[valid_inds]
     neuron_labels = neuron_labels[valid_inds]
     window = np.abs(window)
@@ -298,8 +330,13 @@ def wavelet_align_events(
     sampling_rate = probe_dict['sampling_rate']
 
     window, clip_width = time_window_to_samples(clip_width, sampling_rate)
-    clips, valid_inds = get_singlechannel_clips(probe_dict, chan_voltage,
-                            event_indices, clip_width=clip_width, use_memmap=use_memmap)
+    clips, valid_inds = get_singlechannel_clips(
+        probe_dict,
+        chan_voltage,
+        event_indices,
+        clip_width=clip_width,
+        use_memmap=use_memmap
+        )
     event_indices = event_indices[valid_inds]
     overlaps = np.zeros(event_indices.size, dtype="bool")
     # Create a mexican hat central template, centered on the current clip width
@@ -342,7 +379,11 @@ def wavelet_align_events(
         best_peak = -np.inf
         # First find the best frequency (here 'template') for this clip
         for temp_ind in range(0, len(temp_scales)):
-            cross_corr = np.convolve(clips[c, :], temp_scales[temp_ind], mode='full')
+            cross_corr = np.convolve(
+                clips[c, :],
+                temp_scales[temp_ind],
+                mode='full'
+                )
             max_ind = np.argmax(cross_corr)
             min_ind = np.argmin(cross_corr)
             if cross_corr[max_ind] > best_peak:
@@ -413,9 +454,11 @@ def get_zero_phase_kernel(x, x_center):
     x will be zero phase with respect to x_center.
     """
 
-    kernel_offset = x.size - 2 * x_center - 1 # -1 To center ON the x_center index
+    kernel_offset = (x.size
+                     - 2 * x_center
+                     - 1)  # -1 To center ON the x_center index
     kernel_size = np.abs(kernel_offset) + x.size
-    if kernel_size // 2 == 0: # Kernel must be odd
+    if kernel_size // 2 == 0:  # Kernel must be odd
         kernel_size -= 1
         kernel_offset -= 1
     kernel = np.zeros(kernel_size)
@@ -439,16 +482,18 @@ def get_singlechannel_clips(
     """
 
     Given a probe and the threshold crossings, return a matrix of clips for a
-    given set of threshold crossings. We center the clip on the threshold crossing
-    index. The width of the segment is passed to the function in units of seconds.
-    This is done over all channels on probes, so threshold crossings input in
-    event_indices must be a list where each element contains a numpy array of
-    threshold crossing indices for the corresponding channel in the Probe object.
+    given set of threshold crossings. We center the clip on the
+    threshold crossing index. The width of the segment is passed
+    to the function in units of seconds. This is done over all channels
+    on probes, so threshold crossings input in event_indices must
+    be a list where each element contains a numpy array of
+    threshold crossing indices for the corresponding channel in the Probe
+    object.
     event_indices that yield a clip width beyond data boundaries are ignored.
     event_indices MUST BE ORDERED or else edge cases will not correctly be
     accounted for and an error may result.
-    'get_cips' below should be preferred as it is more versatile but this function
-    is kept for ease and backward compatibility. 
+    'get_cips' below should be preferred as it is more versatile but 
+    this function is kept for ease and backward compatibility.
     """
 
     sampling_rate = probe_dict['sampling_rate']
@@ -479,7 +524,14 @@ def get_singlechannel_clips(
 
     if use_memmap:
         clip_fname = path.join(probe_dict['memmap_dir'], "{0}clips_{1}.bin".format(probe_dict['memmap_fID'], str(probe_dict['ID'])))
-        spike_clips = MemMapClose(clip_fname, dtype=probe_dict['v_dtype'], mode='w+', shape=(np.count_nonzero(valid_event_indices), window[1] - window[0]))
+        spike_clips = MemMapClose(
+            clip_fname,
+            dtype=probe_dict['v_dtype'],
+            mode='w+',
+            shape=(
+                np.count_nonzero(valid_event_indices), window[1] - window[0]
+                )
+            )
     else:
         spike_clips = np.empty((np.count_nonzero(valid_event_indices), window[1] - window[0]), dtype=probe_dict['v_dtype'])
     
@@ -492,7 +544,15 @@ def get_singlechannel_clips(
             spike_clips._mmap.close()
             del spike_clips
         # Make output read only
-        spike_clips = MemMapClose(clip_fname, dtype=probe_dict['v_dtype'], mode='r', shape=(np.count_nonzero(valid_event_indices), window[1] - window[0]))
+        spike_clips = MemMapClose(
+            clip_fname,
+            dtype=probe_dict['v_dtype'],
+            mode='r',
+            shape=(
+                np.count_nonzero(valid_event_indices),
+                window[1] - window[0]
+                )
+            )
 
     return spike_clips, valid_event_indices
 
@@ -509,18 +569,21 @@ def get_clips(
     This is like get_singlechannel_clips except it concatenates the clips for
     each channel input in the list 'neighbors' in the order that they appear.
     Also works for single channel clips.
-    
-    Event indices is a single one dimensional array of indices over which clips from all input
+
+    Event indices is a single one dimensional array of indices over which
+    clips from all input
     channels given by neighbors will be aligned. event_indices MUST BE ORDERED
     or else edge cases will not correctly be accounted for and an error may
     result. If no edge cases are present, check_valid can be set False and
     edges will not be checked (an indexing error will occur if this assumption
-    is incorrect). 
-    
+    is incorrect).
+
     Spike clips are output in the order of the input event indices. 
     """
     if event_indices.ndim > 1:
-        raise ValueError("Event_indices must be one dimensional array of indices")
+        raise ValueError(
+            "Event_indices must be one dimensional array of indices"
+            )
     
     sampling_rate = probe_dict['sampling_rate']
 
@@ -556,7 +619,15 @@ def get_clips(
 
     if use_memmap:
         clip_fname = path.join(probe_dict['memmap_dir'], "{0}clips_{1}.bin".format(probe_dict['memmap_fID'], str(probe_dict['ID'])))
-        spike_clips = MemMapClose(clip_fname, dtype=probe_dict['v_dtype'], mode='w+', shape=(np.count_nonzero(valid_event_indices), (window[1] - window[0]) * len(neighbors)))
+        spike_clips = MemMapClose(
+            clip_fname,
+            dtype=probe_dict['v_dtype'],
+            mode='w+',
+            shape=(
+                np.count_nonzero(valid_event_indices),
+                (window[1] - window[0]) * len(neighbors)
+                )
+            )
     else:
         spike_clips = np.empty((np.count_nonzero(valid_event_indices), (window[1] - window[0]) * len(neighbors)), dtype=probe_dict['v_dtype'])
 
@@ -573,7 +644,14 @@ def get_clips(
             spike_clips._mmap.close()
             del spike_clips
         # Make output read only
-        spike_clips = MemMapClose(clip_fname, dtype=probe_dict['v_dtype'], mode='r',
-                        shape=(np.count_nonzero(valid_event_indices), (window[1] - window[0]) * len(neighbors)))
+        spike_clips = MemMapClose(
+            clip_fname,
+            dtype=probe_dict['v_dtype'],
+            mode='r',
+            shape=(
+                np.count_nonzero(valid_event_indices),
+                (window[1] - window[0]) * len(neighbors)
+                )
+            )
 
     return spike_clips, valid_event_indices
