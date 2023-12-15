@@ -7,8 +7,11 @@ from spikesorting_fullpursuit.c_cython import sort_cython
 from spikesorting_fullpursuit import multinomial_gof
 
 
-
-def initial_cluster_farthest(data, median_cluster_size, choose_percentile=0.95, n_random=0):
+def initial_cluster_farthest(
+        data,
+        median_cluster_size,
+        choose_percentile=0.95,
+        n_random=0):
     """
     Create distance based cluster labels along the rows of data.
 
@@ -409,9 +412,17 @@ Explanation of parameters:
    components). This can help separate larger clusters into smaller clusters.
  - merge_only. Only perform merges, do not split.
 """
-def merge_clusters(data, labels, p_value_cut_thresh=0.01, whiten_clusters=True,
-                   merge_only=False, split_only=False, max_iter=20000,
-                   match_cluster_size=False, check_splits=False, verbose=False):
+def merge_clusters(
+        data,
+        labels,
+        p_value_cut_thresh=0.01,
+        whiten_clusters=True,
+        merge_only=False,
+        split_only=False,
+        max_iter=20000,
+        match_cluster_size=False,
+        check_splits=False,
+        verbose=False):
 
     def whiten_cluster_pairs(scores, labels, c1, c2):
         centroid_1 = sort_cython.compute_cluster_centroid(scores, labels, c1)
@@ -423,7 +434,7 @@ def merge_clusters(data, labels, p_value_cut_thresh=0.01, whiten_clusters=True,
             V = np.matmul(V, inv_average_covariance)
 
         return V
-    
+
     def create_matched_cluster(scores, labels, c1, c2):
         """ Finds the smallest and largest cluster of the labels c1 and c2. Then chooses a matched number of points from
         the larger cluster that are nearest the smallest cluster centroid. These are assigned a new label (the maximum
@@ -452,11 +463,21 @@ def merge_clusters(data, labels, p_value_cut_thresh=0.01, whiten_clusters=True,
     # This helper function determines if we should perform merging of two clusters
     # This function returns a boolean if we should merge the clusters, and reassigns
     # labels in-place according to the iso_cut split otherwise
-    def merge_test(scores, labels, c1, c2, match_cluster=False, check_iso_splits=False):
+    def merge_test(
+            scores,
+            labels,
+            c1,
+            c2,
+            match_cluster=False,
+            check_iso_splits=False):
         # Save the labels so we can revert to them at the end if needed
         original_labels = np.copy(labels)
         if match_cluster:
-            smaller_cluster, matched_label = create_matched_cluster(scores, labels, c1, c2)
+            smaller_cluster, matched_label = create_matched_cluster(
+                scores,
+                labels,
+                c1,
+                c2)
         else:
             if np.count_nonzero(labels == c1) >= np.count_nonzero(labels == c2):
                 matched_label = c1
@@ -467,10 +488,23 @@ def merge_clusters(data, labels, p_value_cut_thresh=0.01, whiten_clusters=True,
         if scores.shape[1] > 1:
             # Get V, the vector connecting the two centroids either with or without whitening
             if whiten_clusters:
-                V = whiten_cluster_pairs(scores, labels, smaller_cluster, matched_label)
+                V = whiten_cluster_pairs(
+                    scores,
+                    labels,
+                    smaller_cluster,
+                    matched_label
+                    )
             else:
-                centroid_1 = sort_cython.compute_cluster_centroid(scores, labels, smaller_cluster)
-                centroid_2 = sort_cython.compute_cluster_centroid(scores, labels, matched_label)
+                centroid_1 = sort_cython.compute_cluster_centroid(
+                    scores,
+                    labels,
+                    smaller_cluster
+                    )
+                centroid_2 = sort_cython.compute_cluster_centroid(
+                    scores,
+                    labels,
+                    matched_label
+                    )
                 V = centroid_2 - centroid_1
             norm_V = la.norm(V)
             if norm_V == 0:
@@ -591,7 +625,11 @@ def merge_clusters(data, labels, p_value_cut_thresh=0.01, whiten_clusters=True,
             print("Maximum number of iterations exceeded")
             return labels
 
-        minimum_distance_pairs = sort_cython.identify_clusters_to_compare(data, labels, previously_compared_pairs)
+        minimum_distance_pairs = sort_cython.identify_clusters_to_compare(
+            data,
+            labels,
+            previously_compared_pairs
+            )
         if len(minimum_distance_pairs) == 0 and none_merged:
             break # Done, no more clusters to compare
         none_merged = True
@@ -601,9 +639,23 @@ def merge_clusters(data, labels, p_value_cut_thresh=0.01, whiten_clusters=True,
             n_c2 = np.count_nonzero(labels == c2)
             if ( (n_c1 > 1) and (n_c2 > 1) ):
                 # Need more than 1 spike in each matched cluster 
-                merge = merge_test(data, labels, c1, c2, match_cluster=match_cluster_size, check_iso_splits=check_splits)
+                merge = merge_test(
+                    data,
+                    labels,
+                    c1,
+                    c2,
+                    match_cluster=match_cluster_size,
+                    check_iso_splits=check_splits
+                    )
             elif ( (n_c1 > 1) or (n_c2 > 1) ):
-                merge = merge_test(data, labels, c1, c2, match_cluster=False, check_iso_splits=check_splits)
+                merge = merge_test(
+                    data,
+                    labels,
+                    c1,
+                    c2,
+                    match_cluster=False,
+                    check_iso_splits=check_splits
+                    )
             else:
                 # c1 and c2 have one spike each so merge them (algorithm can't
                 # split in this case and they are mutually closest pairs)

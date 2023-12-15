@@ -6,33 +6,32 @@ from spikesorting_fullpursuit.preprocessing import calculate_robust_template
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 
 
-
 def abs2(x):
     """ Gets absolute value squared of numpy complex number """
     return x.real**2 + x.imag**2
 
 
-"""
-    wiener(input, signal, noise)
-
-Compute the wiener filter on the input signal given an estimate of the
-true (noiseless) signal and an estimate of the noise (signal removed).
-
-This function optimally smooths the noise and signal power spectra using
-a running average specified by `smooth`. The smooth parameter is provided
-in integer samples (i.e., the boxcar window).
-"""
 def wiener(original_voltage, signal_voltage, noise_voltage, smooth=1):
 
+    """
+    wiener(input, signal, noise)
+
+    Compute the wiener filter on the input signal given an estimate of the
+    true (noiseless) signal and an estimate of the noise (signal removed).
+
+    This function optimally smooths the noise and signal power spectra using
+    a running average specified by `smooth`. The smooth parameter is provided
+    in integer samples (i.e., the boxcar window).
+    """
     if original_voltage.ndim == 1:
         original_voltage = np.expand_dims(original_voltage, 0)
         signal_voltage = np.expand_dims(signal_voltage, 0)
         noise_voltage = np.expand_dims(noise_voltage, 0)
     assert (signal_voltage.shape == original_voltage.shape) and (noise_voltage.shape == original_voltage.shape)
 
-    original_ft = np.fft.rfft(original_voltage, axis=1) # Input in frequency domain
-    S = abs2(np.fft.rfft(signal_voltage, axis=1)) # Signal power spectrum
-    N = abs2(np.fft.rfft(noise_voltage, axis=1)) # Noise power spectrum
+    original_ft = np.fft.rfft(original_voltage, axis=1)  # Input in frequency domain
+    S = abs2(np.fft.rfft(signal_voltage, axis=1))  # Signal power spectrum
+    N = abs2(np.fft.rfft(noise_voltage, axis=1))  # Noise power spectrum
     smooth = int(smooth)
     if smooth > 1:
         S_smoothed = np.zeros(S.shape[1])
@@ -62,14 +61,18 @@ def wiener(original_voltage, signal_voltage, noise_voltage, smooth=1):
             N_smoothed[:] = 0.
 
     wiener_filt = wiener_optimal_filter(S, N)
-    original_ft *= wiener_filt # Filtered FFT
-    filtered_signal = np.fft.irfft(original_ft, n=original_voltage.shape[1], axis=1)
+    original_ft *= wiener_filt  # Filtered FFT
+    filtered_signal = np.fft.irfft(
+        original_ft,
+        n=original_voltage.shape[1],
+        axis=1)
 
     return filtered_signal
 
 
 def wiener_all(original_voltage, signal_voltage, noise_voltage, smooth=1):
-    """ Performs Wiener filter over data across all channels in voltage at once
+    """
+    Performs Wiener filter over data across all channels in voltage at once
     using the same filter for every channel. The idea is to help avoid
     potential pitfalls of using a very small/noisy "signal" on channels without
     threshold crossings that could in turn amplify this noise via filtering.
@@ -80,9 +83,9 @@ def wiener_all(original_voltage, signal_voltage, noise_voltage, smooth=1):
     ov = original_voltage.ravel(order="C")
     sv = signal_voltage.ravel(order="C")
     nv = noise_voltage.ravel(order="C")
-    original_ft = np.fft.rfft(ov) # Input in frequency domain
-    S = abs2(np.fft.rfft(sv)) # Signal power spectrum
-    N = abs2(np.fft.rfft(nv)) # Noise power spectrum
+    original_ft = np.fft.rfft(ov)  # Input in frequency domain
+    S = abs2(np.fft.rfft(sv))  # Signal power spectrum
+    N = abs2(np.fft.rfft(nv))  # Noise power spectrum
     smooth = int(smooth)
     if smooth > 1:
         S_smoothed = np.zeros(S.shape[0])
@@ -121,17 +124,25 @@ def wiener_optimal_filter(signal_power, noise_power, epsilon=1e-9):
     return (signal_power) / (signal_power + noise_power + epsilon)
 
 
-def wiener_filter_segment(work_items, data_dict, seg_number, sort_info,
-                            v_dtype, use_memmap):
-    """ Does the Wiener filter on the segment voltage provided. The new filtered
-    voltage OVERWRITES the input segment voltage buffers/memmaps! """
+def wiener_filter_segment(
+        work_items,
+        data_dict,
+        seg_number,
+        sort_info,
+        v_dtype,
+        use_memmap):
+    """
+    Does the Wiener filter on the segment voltage provided. The new filtered
+    voltage OVERWRITES the input segment voltage buffers/memmaps!
+    """
 
     # Initialize voltages
     if use_memmap:
-        voltage_mmap = MemMapClose(data_dict['seg_v_files'][seg_number][0],
-                            dtype=data_dict['seg_v_files'][seg_number][1],
-                            mode='r+',
-                            shape=data_dict['seg_v_files'][seg_number][2])
+        voltage_mmap = MemMapClose(
+            data_dict['seg_v_files'][seg_number][0],
+            dtype=data_dict['seg_v_files'][seg_number][1],
+            mode='r+',
+            shape=data_dict['seg_v_files'][seg_number][2])
         # Copy to memory cause spike clip selction/indexing is crazy
         voltage = memmap_to_mem(voltage_mmap)
     else:
@@ -162,16 +173,20 @@ def wiener_filter_segment(work_items, data_dict, seg_number, sort_info,
                 # This work item found nothing (or raised an exception)
                 seg_data.append([[], [], [], [], w_item['ID']])
                 continue
-            clips, _ = get_clips(clips_dict, voltage, w_item['neighbors'],
-                                    data_dict['results_dict'][w_item['ID']][0],
-                                    clip_width=sort_info['clip_width'])
+            clips, _ = get_clips(
+                clips_dict,
+                voltage,
+                w_item['neighbors'],
+                data_dict['results_dict'][w_item['ID']][0],
+                clip_width=sort_info['clip_width'])
 
             # Insert list of crossings, labels, clips, binary pursuit spikes
-            seg_data.append([data_dict['results_dict'][w_item['ID']][0],
-                              data_dict['results_dict'][w_item['ID']][1],
-                              clips,
-                              np.zeros(len(data_dict['results_dict'][w_item['ID']][0]), dtype="bool"),
-                              w_item['ID']])
+            seg_data.append([
+                data_dict['results_dict'][w_item['ID']][0],
+                data_dict['results_dict'][w_item['ID']][1],
+                clips,
+                np.zeros(len(data_dict['results_dict'][w_item['ID']][0]), dtype="bool"),
+                w_item['ID']])
             if type(seg_data[-1][0][0]) == np.ndarray:
                 if seg_data[-1][0][0].size > 0:
                     # Adjust crossings for segment start time
@@ -182,9 +197,13 @@ def wiener_filter_segment(work_items, data_dict, seg_number, sort_info,
 
     # Pass a copy of current state of sort info to seg_summary. Actual sort_info
     # will be altered later but SegSummary must follow original data
-    seg_summary = SegSummary(seg_data, seg_w_items, deepcopy(sort_info), v_dtype,
-                        absolute_refractory_period=sort_info['absolute_refractory_period'],
-                        verbose=False)
+    seg_summary = SegSummary(
+        seg_data,
+        seg_w_items,
+        deepcopy(sort_info),
+        v_dtype,
+        absolute_refractory_period=sort_info['absolute_refractory_period'],
+        verbose=False)
     if len(seg_summary.summaries) == 0:
         print("Found no neuron templates for Wiener filter so nothing to filter!")
         return None
@@ -194,10 +213,12 @@ def wiener_filter_segment(work_items, data_dict, seg_number, sort_info,
     for n in seg_summary.summaries:
         # Get the clips for each channel in neighborhood of this work item
         for chan in n['neighbors']:
-            clips, valid_inds = get_singlechannel_clips(clips_dict,
-                                    voltage[chan, :],
-                                    n['spike_indices'],
-                                    sort_info['clip_width'])
+            clips, valid_inds = get_singlechannel_clips(
+                clips_dict,
+                voltage[chan, :],
+                n['spike_indices'],
+                sort_info['clip_width']
+                )
             # Make noise and signal by adding/subtracting this neurons template
             n['spike_indices'] = n['spike_indices'][valid_inds]
             robust_template = calculate_robust_template(clips)

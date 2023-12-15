@@ -8,11 +8,11 @@ from spikesorting_fullpursuit import neuron_separability
 from spikesorting_fullpursuit.parallel import segment_parallel
 
 
-
 def get_zero_phase_kernel(x, x_center):
-    """ Zero pads the 1D kernel x, so that it is aligned with the current element
-        of x located at x_center.  This ensures that convolution with the kernel
-        x will be zero phase with respect to x_center.
+    """
+    Zero pads the 1D kernel x, so that it is aligned with the current element
+    of x located at x_center.  This ensures that convolution with the kernel
+    x will be zero phase with respect to x_center.
     """
 
     kernel_offset = x.size - 2 * x_center - 1 # -1 To center ON the x_center index
@@ -33,9 +33,11 @@ def get_zero_phase_kernel(x, x_center):
 
 
 def compute_shift_indices(templates, samples_per_chan, n_chans):
-    """ Performs the max likelihood computation for various shifts of all pairwise
-    templates in the absence of noise to determine the range of indices at which
-    the algorithm will fail to correctly identify a spike label or index. """
+    """
+    Performs the max likelihood computation for various shifts of all pairwise
+    templates in the absence of noise to determine the range of indices at
+    which the algorithm will fail to correctly identify a spike label or index.
+    """
     # Output is a flat matrix lookup for pairwise pre and post shift indices
     template_pre_inds = np.zeros(templates.shape[0] * templates.shape[0], dtype=np.int32)
     template_post_inds = np.zeros(templates.shape[0] * templates.shape[0], dtype=np.int32)
@@ -51,7 +53,11 @@ def compute_shift_indices(templates, samples_per_chan, n_chans):
         L_phase[:] = 0
         for chan in range(0, n_chans):
             sum_voltage[chan, samples_per_chan:2*samples_per_chan] = templates[t, :][chan*samples_per_chan:(chan+1)*samples_per_chan]
-            L_phase += np.convolve(sum_voltage[chan, :], templates[t, :][chan*samples_per_chan:(chan+1)*samples_per_chan], mode='same')
+            L_phase += np.convolve(
+                sum_voltage[chan, :],
+                templates[t, :][chan*samples_per_chan:(chan+1)*samples_per_chan],
+                mode='same'
+                )
         ref_inds[t] = np.argmax(L_phase)
 
     # And corresponding likelihood functions
@@ -83,8 +89,16 @@ def compute_shift_indices(templates, samples_per_chan, n_chans):
                         sum_voltage[chan, samples_per_chan+shift:2*samples_per_chan+shift] += shift_t[chan*samples_per_chan:(chan+1)*samples_per_chan]
                     else:
                         sum_voltage[chan, samples_per_chan+shift:2*samples_per_chan+shift] += shift_t[chan*samples_per_chan:(chan+1)*samples_per_chan]
-                    L_fixed += np.convolve(sum_voltage[chan, :], fixed_t[chan*samples_per_chan:(chan+1)*samples_per_chan], mode='same')
-                    L_shift += np.convolve(sum_voltage[chan, :], shift_t[chan*samples_per_chan:(chan+1)*samples_per_chan], mode='same')
+                    L_fixed += np.convolve(
+                        sum_voltage[chan, :],
+                        fixed_t[chan*samples_per_chan:(chan+1)*samples_per_chan],
+                        mode='same'
+                        )
+                    L_shift += np.convolve(
+                        sum_voltage[chan, :],
+                        shift_t[chan*samples_per_chan:(chan+1)*samples_per_chan],
+                        mode='same'
+                        )
 
                 # Add template aspect of likelihood function and find peak indices
                 L_fixed -= fixed_t_ss
@@ -125,11 +139,16 @@ def compute_shift_indices(templates, samples_per_chan, n_chans):
     return template_pre_inds, template_post_inds
 
 
-def binary_pursuit(voltage, v_dtype, sort_info,
-                   separability_metrics, n_max_shift_inds=None, kernels_path=None,
-                   max_gpu_memory=None):
+def binary_pursuit(
+        voltage,
+        v_dtype,
+        sort_info,
+        separability_metrics,
+        n_max_shift_inds=None,
+        kernels_path=None,
+        max_gpu_memory=None):
     """
-    	binary_pursuit_opencl(voltage, crossings, labels, clips)
+    binary_pursuit_opencl(voltage, crossings, labels, clips)
 
     Uses OpenCL on a GPU to identify spikes that overlap with already identified
     spikes. This also will identify spikes that are less than the threshold.

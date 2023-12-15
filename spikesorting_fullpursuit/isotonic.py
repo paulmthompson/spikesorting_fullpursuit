@@ -1,8 +1,6 @@
 import numpy as np
 
 
-
-
 def unimodal_prefix_isotonic_regression_l2(y, w):
     """ The y values must be ordered according to the desired fit, with the w
         values in one to one correspondence.  Weights w must be non-negative.
