@@ -5,10 +5,14 @@ from spikesorting_fullpursuit.parallel.segment_parallel import median_threshold
 from spikesorting_fullpursuit.c_cython import sort_cython
 
 
-
-def remove_artifacts(Probe, sigma, artifact_cushion, artifact_tol, n_artifact_chans):
-
-    """ Zero voltage for threshold crossings within artifact_tol samples that
+def remove_artifacts(
+        Probe,
+        sigma,
+        artifact_cushion,
+        artifact_tol,
+        n_artifact_chans):
+    """
+    Zero voltage for threshold crossings within artifact_tol samples that
     cross threshold on >= artifact_chans number of chans. Zero'ing goes from
     first thresh crossing - clip_width[0] to last threshold
     crossing + clip_width[1]. The voltage is modified in place for the
@@ -75,7 +79,6 @@ def remove_artifacts(Probe, sigma, artifact_cushion, artifact_tol, n_artifact_ch
     return Probe
 
 
-
 def get_full_zca_matrix(data, rowvar=True):
     """ 
     Computes ZCA matrix for data. rowvar=False means that COLUMNS represent
@@ -103,8 +106,12 @@ def get_full_zca_matrix(data, rowvar=True):
     return zca_matrix
 
 
-def get_noise_sampled_zca_matrix(voltage_data, thresholds, sigma, thresh_cushion,
-                                 n_samples=1e6):
+def get_noise_sampled_zca_matrix(
+        voltage_data,
+        thresholds,
+        sigma,
+        thresh_cushion,
+        n_samples=1e6):
     """
     The ZCA procedure was taken (and reformatted into 2 lines) from:
     https://github.com/zellyn/deeplearning-class-2011/blob/master/ufldl/pca_2d/pca_2d.py
@@ -128,7 +135,13 @@ def get_noise_sampled_zca_matrix(voltage_data, thresholds, sigma, thresh_cushion
     thresh_cushion = (thresh_cushion * 2 + 1)
     volt_thresh_bool = np.zeros(voltage_data.shape, dtype="bool")
     for chan_v in range(0, volt_thresh_bool.shape[0]):
-        volt_thresh_bool[chan_v, :] = np.rint(signal.fftconvolve(np.abs(voltage_data[chan_v, :]) > zca_thresholds[chan_v], np.ones(thresh_cushion), mode='same')).astype("bool")
+        volt_thresh_bool[chan_v, :] = np.rint(
+            signal.fftconvolve(
+                np.abs(voltage_data[chan_v, :]) > zca_thresholds[chan_v],
+                np.ones(thresh_cushion),
+                mode='same'
+                )
+            ).astype("bool")
     sigma = np.empty((voltage_data.shape[0], voltage_data.shape[0]))
     for i in range(0, voltage_data.shape[0]):
         # Compute i variance for diagonal elements of sigma
@@ -167,22 +180,24 @@ def get_noise_sampled_zca_matrix(voltage_data, thresholds, sigma, thresh_cushion
     return zca_matrix
 
 
-"""
-    pca(spikes)
+def pca_scores(
+        spikes,
+        compute_pcs=None,
+        pcs_as_index=True,
+        return_V=False,
+        return_E=False):
+    """
+    Given a set of spikes which is an MxN matrix (M spikes x N timepoints), we
+    determine the principle components given a set of spikes. The principle
+    components are returned in order of decreasing variance (i.e, the
+    first components returned have the highest variance).
 
-Given a set of spikes which is an MxN matrix (M spikes x N timepoints), we
-determine the principle components given a set of spikes. The principle components
-are returned in order of decreasing variance (i.e, the first components returned
-have the highest variance).
-
-Each column in the returned output corresponds to one principle component. To
-compute the "weight" for each PCA, simply multiply matrix wise.
- pca(spikes)[:, 1] * spikes[1, :]
-to get the weight of the first principle component for the first spike.
-If pc_count is a scalar
-"""
-def pca_scores(spikes, compute_pcs=None, pcs_as_index=True, return_V=False, return_E=False):
-
+    Each column in the returned output corresponds to one principle component.
+    To compute the "weight" for each PCA, simply multiply matrix wise.
+    pca(spikes)[:, 1] * spikes[1, :]
+    to get the weight of the first principle component for the first spike.
+    If pc_count is a scalar
+    """
     if spikes.ndim != 2:
         raise ValueError("Input 'spikes' must be a 2 dimensional array to compute PCA")
     if spikes.shape[0] <= 1:
@@ -223,17 +238,21 @@ def pca_scores(spikes, compute_pcs=None, pcs_as_index=True, return_V=False, retu
         return U
 
 
-"""
-Used as an alternative to 'max_pca_components_cross_validation'.
-This function computes the reconstruction based on each principal component
-separately and then reorders the principal components according to their
-reconstruction accuracy rather than variance accounted for.  It then iterates
-through the reconstructions adding one PC at a time in this new order and at each
-step computing the ratio of improvement from the addition of a PC.  All PCs up to
-and including the first local maxima of this VAF function are output as the
-the optimal ones to use. """
-def optimal_reconstruction_pca_order(spikes, check_components=None,
-                                     max_components=None, min_components=0):
+def optimal_reconstruction_pca_order(
+        spikes,
+        check_components=None,
+        max_components=None,
+        min_components=0):
+    """
+    Used as an alternative to 'max_pca_components_cross_validation'.
+    This function computes the reconstruction based on each principal component
+    separately and then reorders the principal components according to their
+    reconstruction accuracy rather than variance accounted for.  It then
+    iterates through the reconstructions adding one PC at a time in this
+    new order and at each step computing the ratio of improvement
+    from the addition of a PC.  All PCs up to and including the first local
+    maxima of this VAF function are output as the the optimal ones to use.
+    """
     # Limit max-components based on the size of the dimensions of spikes
     if max_components is None:
         max_components = spikes.shape[1]
@@ -244,7 +263,12 @@ def optimal_reconstruction_pca_order(spikes, check_components=None,
 
     # Get residual sum of squared error for each PC separately
     resid_error = np.zeros(check_components)
-    _, components = pca_scores(spikes, check_components, pcs_as_index=False, return_V=True)
+    _, components = pca_scores(
+        spikes,
+        check_components,
+        pcs_as_index=False,
+        return_V=True
+        )
     if components is None:
         # Couldn't compute PCs
         return np.zeros(1, dtype=np.int64), True
@@ -270,10 +294,10 @@ def optimal_reconstruction_pca_order(spikes, check_components=None,
         PRESS = RESS
         # Choose first local maxima
         if (vaf[comp] < vaf[comp - 1]):
-          break
+            break
         if comp == max_components:
-          # Won't use more than this so break
-          break
+            # Won't use more than this so break
+            break
 
     max_vaf_components = comp
 
@@ -300,8 +324,14 @@ def optimal_reconstruction_pca_order(spikes, check_components=None,
     return comp_order[0:max_vaf_components], is_worse_than_mean
 
 
-def compute_pca(clips, check_components, max_components, add_peak_valley=False,
-                curr_chan_inds=None, n_samples=1e5):
+def compute_pca(
+        clips,
+        check_components,
+        max_components,
+        add_peak_valley=False,
+        curr_chan_inds=None,
+        n_samples=1e5):
+
     if add_peak_valley and curr_chan_inds is None:
         raise ValueError("Must supply indices for the main channel if using peak valley")
     # Get a sample of the current clips for PCA reconstruction so that memory
@@ -317,11 +347,22 @@ def compute_pca(clips, check_components, max_components, add_peak_valley=False,
         np.copyto(sample_clips, clips[sel_inds, :])
 
     if mem_order == "C":
-        use_components, _ = sort_cython.optimal_reconstruction_pca_order(sample_clips, check_components, max_components)
+        use_components, _ = sort_cython.optimal_reconstruction_pca_order(
+            sample_clips,
+            check_components,
+            max_components)
     else:
-        use_components, _ = sort_cython.optimal_reconstruction_pca_order_F(sample_clips, check_components, max_components)
+        use_components, _ = sort_cython.optimal_reconstruction_pca_order_F(
+            sample_clips,
+            check_components,
+            max_components)
     # Return the PC matrix computed over sampled data
-    scores, V = pca_scores(sample_clips, use_components, pcs_as_index=True, return_V=True)
+    scores, V = pca_scores(
+        sample_clips,
+        use_components,
+        pcs_as_index=True,
+        return_V=True
+        )
     if scores is None:
         # Usually means all clips were the same or there was <= 1, so PCs can't
         # be computed. Just return everything as the same score
@@ -330,7 +371,9 @@ def compute_pca(clips, check_components, max_components, add_peak_valley=False,
         # Convert ALL clips to scores
         scores = np.matmul(clips, V)
     if add_peak_valley:
-        peak_valley = (np.amax(clips[:, curr_chan_inds], axis=1) - np.amin(clips[:, curr_chan_inds], axis=1)).reshape(clips.shape[0], -1)
+        peak_valley = (np.amax(clips[:, curr_chan_inds], axis=1)
+                       - np.amin(clips[:, curr_chan_inds], axis=1)
+                       ).reshape(clips.shape[0], -1)
         peak_valley /= np.amax(np.abs(peak_valley)) # Normalized from -1 to 1
         peak_valley *= np.amax(np.amax(np.abs(scores))) # Normalized to same range as PC scores
         scores = np.hstack((scores, peak_valley))
@@ -338,8 +381,14 @@ def compute_pca(clips, check_components, max_components, add_peak_valley=False,
     return scores
 
 
-def compute_pca_by_channel(clips, curr_chan_inds, check_components,
-                           max_components, add_peak_valley=False, n_samples=1e5):
+def compute_pca_by_channel(
+        clips,
+        curr_chan_inds,
+        check_components,
+        max_components,
+        add_peak_valley=False,
+        n_samples=1e5):
+    
     if add_peak_valley and curr_chan_inds is None:
         raise ValueError("Must supply indices for the main channel if using peak valley")
     pcs_by_chan = []
@@ -358,10 +407,21 @@ def compute_pca_by_channel(clips, curr_chan_inds, check_components,
         np.copyto(sample_clips, clips[sel_inds, curr_chan_inds[0]:curr_chan_inds[-1]+1])
 
     if mem_order == "C":
-        use_components, _ = sort_cython.optimal_reconstruction_pca_order(sample_clips, check_components, max_components)
+        use_components, _ = sort_cython.optimal_reconstruction_pca_order(
+            sample_clips,
+            check_components,
+            max_components)
     else:
-        use_components, _ = sort_cython.optimal_reconstruction_pca_order_F(sample_clips, check_components, max_components)
-    scores, V, eigs = pca_scores(sample_clips, use_components, pcs_as_index=True, return_E=True, return_V=True)
+        use_components, _ = sort_cython.optimal_reconstruction_pca_order_F(
+            sample_clips,
+            check_components,
+            max_components)
+    scores, V, eigs = pca_scores(
+        sample_clips,
+        use_components,
+        pcs_as_index=True,
+        return_E=True,
+        return_V=True)
     if scores is None:
         # Usually means all clips were the same or there was <= 1, so PCs can't
         # be computed. Just return everything as the same score
@@ -370,9 +430,16 @@ def compute_pca_by_channel(clips, curr_chan_inds, check_components,
         # Convert ALL clips to scores
         scores = np.matmul(clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1], V)
     if add_peak_valley:
-        peak_valley = (np.amax(clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1], axis=1) - np.amin(clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1], axis=1)).reshape(clips.shape[0], -1)
-        peak_valley /= np.amax(np.abs(peak_valley)) # Normalized from -1 to 1
-        peak_valley *= np.amax(np.amax(np.abs(scores))) # Normalized to same range as PC scores
+        peak_valley = (
+                    np.amax(
+                        clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
+                        axis=1)
+                    - np.amin(
+                        clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
+                        axis=1)
+                    ).reshape(clips.shape[0], -1)
+        peak_valley /= np.amax(np.abs(peak_valley))  # Normalized from -1 to 1
+        peak_valley *= np.amax(np.amax(np.abs(scores)))  # Normalized to same range as PC scores
         scores = np.hstack((scores, peak_valley))
     pcs_by_chan.append(scores)
     eigs_by_chan.append(eigs)
@@ -387,13 +454,25 @@ def compute_pca_by_channel(clips, curr_chan_inds, check_components,
         # Copy channel data to memory in sample clips using same clips as before
         np.copyto(sample_clips, clips[sel_inds, ch_win[0]:ch_win[1]])
         if mem_order == "C":
-            use_components, is_worse_than_mean = sort_cython.optimal_reconstruction_pca_order(sample_clips, check_components, max_components)
+            use_components, is_worse_than_mean = sort_cython.optimal_reconstruction_pca_order(
+                sample_clips,
+                check_components,
+                max_components
+                )
         else:
-            use_components, is_worse_than_mean = sort_cython.optimal_reconstruction_pca_order_F(sample_clips, check_components, max_components)
+            use_components, is_worse_than_mean = sort_cython.optimal_reconstruction_pca_order_F(
+                sample_clips,
+                check_components,
+                max_components)
         if is_worse_than_mean:
             # print("Automatic component detection (get by channel) chose !NO! PCA components.", flush=True)
             continue
-        scores, V, eigs = pca_scores(clips[:, ch_win[0]:ch_win[1]], use_components, pcs_as_index=True, return_E=True, return_V=True)
+        scores, V, eigs = pca_scores(
+            clips[:, ch_win[0]:ch_win[1]],
+            use_components,
+            pcs_as_index=True,
+            return_E=True,
+            return_V=True)
         if scores is not None:
             # Convert ALL clips to scores
             scores = np.matmul(clips[:, ch_win[0]:ch_win[1]], V)
@@ -412,7 +491,11 @@ def compute_pca_by_channel(clips, curr_chan_inds, check_components,
     return pcs_by_chan
 
 
-def minimal_redundancy_template_order(spikes, templates, max_templates=None, first_template_ind=None):
+def minimal_redundancy_template_order(
+        spikes,
+        templates,
+        max_templates=None,
+        first_template_ind=None):
     """
     """
     if max_templates is None:
@@ -472,7 +555,12 @@ def minimal_redundancy_template_order(spikes, templates, max_templates=None, fir
     return new_temp_order.T
 
 
-def compute_template_projection(clips, labels, curr_chan_inds, add_peak_valley=False, max_templates=None):
+def compute_template_projection(
+        clips,
+        labels,
+        curr_chan_inds,
+        add_peak_valley=False,
+        max_templates=None):
     """
     """
     if add_peak_valley and curr_chan_inds is None:
@@ -484,23 +572,36 @@ def compute_template_projection(clips, labels, curr_chan_inds, add_peak_valley=F
     templates = np.empty((unique_labels.size, clips.shape[1]))
     for ind, l in enumerate(unique_labels):
         templates[ind, :] = np.mean(clips[labels == l, :], axis=0)
-    templates = minimal_redundancy_template_order(clips, templates,
-                    max_templates=max_templates, first_template_ind=u_counts)
+    templates = minimal_redundancy_template_order(
+        clips,
+        templates,
+        max_templates=max_templates,
+        first_template_ind=u_counts
+        )
     # Keep at most the max_templates templates
     templates = templates[0:min(templates.shape[0], max_templates), :]
     scores = clips @ templates.T
 
     if add_peak_valley:
-        peak_valley = (np.amax(clips[:, curr_chan_inds], axis=1) - np.amin(clips[:, curr_chan_inds], axis=1)).reshape(clips.shape[0], -1)
-        peak_valley /= np.amax(np.abs(peak_valley)) # Normalized from -1 to 1
-        peak_valley *= np.amax(np.amax(np.abs(scores))) # Normalized to same range as PC scores
+        peak_valley = (np.amax(clips[:, curr_chan_inds], axis=1)
+                       - np.amin(clips[:, curr_chan_inds], axis=1)
+                       ).reshape(clips.shape[0], -1)
+        peak_valley /= np.amax(np.abs(peak_valley))  # Normalized from -1 to 1
+        peak_valley *= np.amax(np.amax(np.abs(scores)))  # Normalized to same range as PC scores
         scores = np.hstack((scores, peak_valley))
 
     return scores
 
 
-def compute_template_pca(clips, labels, curr_chan_inds, check_components,
-        max_components, add_peak_valley=False, use_weights=True):
+def compute_template_pca(
+        clips,
+        labels,
+        curr_chan_inds,
+        check_components,
+        max_components,
+        add_peak_valley=False,
+        use_weights=True):
+    
     if add_peak_valley and curr_chan_inds is None:
         raise ValueError("Must supply indices for the main channel if using peak valley")
     # Compute the weights using the PCA for neuron templates
@@ -521,18 +622,31 @@ def compute_template_pca(clips, labels, curr_chan_inds, check_components,
     clip_dtype = clips.dtype
     clips = clips.astype(np.float64)
     if templates.flags['C_CONTIGUOUS']:
-        use_components, _ = sort_cython.optimal_reconstruction_pca_order(templates, check_components, max_components)
+        use_components, _ = sort_cython.optimal_reconstruction_pca_order(
+            templates,
+            check_components,
+            max_components)
     else:
-        use_components, _ = sort_cython.optimal_reconstruction_pca_order_F(templates, check_components, max_components)
+        use_components, _ = sort_cython.optimal_reconstruction_pca_order_F(
+            templates,
+            check_components,
+            max_components)
     # print("Automatic component detection (FULL TEMPLATES) chose", use_components, "PCA components.")
-    _, score_mat = pca_scores(templates, use_components, pcs_as_index=True, return_V=True)
+    _, score_mat = pca_scores(
+        templates,
+        use_components,
+        pcs_as_index=True,
+        return_V=True
+        )
     if score_mat is None:
         # Usually means all clips were the same or there was <= 1, so PCs can't
         # be computed. Just return everything as the same score
         return np.zeros((clips.shape[0], 1))
     scores = clips @ score_mat
     if add_peak_valley:
-        peak_valley = (np.amax(clips[:, curr_chan_inds], axis=1) - np.amin(clips[:, curr_chan_inds], axis=1)).reshape(clips.shape[0], -1)
+        peak_valley = (np.amax(clips[:, curr_chan_inds], axis=1)
+                       - np.amin(clips[:, curr_chan_inds], axis=1)
+                       ).reshape(clips.shape[0], -1)
         peak_valley /= np.amax(np.abs(peak_valley)) # Normalized from -1 to 1
         peak_valley *= np.amax(np.amax(np.abs(scores))) # Normalized to same range as PC scores
         scores = np.hstack((scores, peak_valley))
@@ -541,8 +655,15 @@ def compute_template_pca(clips, labels, curr_chan_inds, check_components,
     return scores
 
 
-def compute_template_pca_by_channel(clips, labels, curr_chan_inds,
-        check_components, max_components, add_peak_valley=False, use_weights=True):
+def compute_template_pca_by_channel(
+        clips,
+        labels,
+        curr_chan_inds,
+        check_components,
+        max_components,
+        add_peak_valley=False,
+        use_weights=True):
+    
     if curr_chan_inds is None:
         raise ValueError("Must supply indices for the main channel for computing PCA by channel")
     # Compute the weights using the PCA for neuron templates
@@ -566,11 +687,22 @@ def compute_template_pca_by_channel(clips, labels, curr_chan_inds,
     clip_dtype = clips.dtype
     clips = clips.astype(np.float64)
     if is_c_contiguous:
-        use_components, _ = sort_cython.optimal_reconstruction_pca_order(templates[:, curr_chan_inds], check_components, max_components)
+        use_components, _ = sort_cython.optimal_reconstruction_pca_order(
+            templates[:, curr_chan_inds],
+            check_components,
+            max_components)
     else:
-        use_components, _ = sort_cython.optimal_reconstruction_pca_order_F(templates[:, curr_chan_inds], check_components, max_components)
+        use_components, _ = sort_cython.optimal_reconstruction_pca_order_F(
+            templates[:, curr_chan_inds],
+            check_components,
+            max_components)
     # print("Automatic component detection (TEMPLATES by channel) chose", use_components, "PCA components.")
-    _, score_mat = pca_scores(templates[:, curr_chan_inds], use_components, pcs_as_index=True, return_V=True)
+    _, score_mat = pca_scores(
+        templates[:, curr_chan_inds],
+        use_components,
+        pcs_as_index=True,
+        return_V=True)
+
     if score_mat is None:
         # Usually means all clips were the same or there was <= 1, so PCs can't
         # be computed. Just return everything as the same score
@@ -578,9 +710,11 @@ def compute_template_pca_by_channel(clips, labels, curr_chan_inds,
         return np.zeros((clips.shape[0], 1))
     scores = clips[:, curr_chan_inds] @ score_mat
     if add_peak_valley:
-        peak_valley = (np.amax(clips[:, curr_chan_inds], axis=1) - np.amin(clips[:, curr_chan_inds], axis=1)).reshape(clips.shape[0], -1)
-        peak_valley /= np.amax(np.abs(peak_valley)) # Normalized from -1 to 1
-        peak_valley *= np.amax(np.amax(np.abs(scores))) # Normalized to same range as PC scores
+        peak_valley = (np.amax(clips[:, curr_chan_inds], axis=1) 
+                       - np.amin(clips[:, curr_chan_inds], axis=1)
+                       ).reshape(clips.shape[0], -1)
+        peak_valley /= np.amax(np.abs(peak_valley))  # Normalized from -1 to 1
+        peak_valley *= np.amax(np.amax(np.abs(scores)))  # Normalized to same range as PC scores
         scores = np.hstack((scores, peak_valley))
     pcs_by_chan.append(scores)
     n_curr_max = use_components.size
@@ -592,16 +726,29 @@ def compute_template_pca_by_channel(clips, labels, curr_chan_inds,
         ch_inds = np.arange(ch*samples_per_chan, (ch+1)*samples_per_chan)
         # use_components, is_worse_than_mean = optimal_reconstruction_pca_order(templates[:, ch_inds], check_components, max_components)
         if is_c_contiguous:
-            use_components, is_worse_than_mean = sort_cython.optimal_reconstruction_pca_order(templates[:, ch_inds], check_components, max_components)
+            use_components, is_worse_than_mean = sort_cython.optimal_reconstruction_pca_order(
+                templates[:, ch_inds],
+                check_components,
+                max_components
+                )
         else:
-            use_components, is_worse_than_mean = sort_cython.optimal_reconstruction_pca_order_F(templates[:, ch_inds], check_components, max_components)
+            use_components, is_worse_than_mean = sort_cython.optimal_reconstruction_pca_order_F(
+                templates[:, ch_inds],
+                check_components,
+                max_components
+                )
         if is_worse_than_mean:
             # print("Automatic component detection (TEMPLATES by channel) chose !NO! PCA components.", flush=True)
             continue
         # if use_components.size > n_curr_max:
         #     use_components = use_components[0:n_curr_max]
         # print("Automatic component detection (TEMPLATES by channel) chose", use_components, "PCA components.")
-        _, score_mat = pca_scores(templates[:, ch_inds], use_components, pcs_as_index=True, return_V=True)
+        _, score_mat = pca_scores(
+            templates[:, ch_inds],
+            use_components,
+            pcs_as_index=True,
+            return_V=True
+            )
         scores = clips[:, ch_inds] @ score_mat
         pcs_by_chan.append(scores)
     clips = clips.astype(clip_dtype)
@@ -647,6 +794,7 @@ def cleanup_clusters(clips, neuron_labels):
                 keep_clips[nl_ind] = False
 
     return keep_clips
+
 
 def calculate_robust_template(clips):
 
