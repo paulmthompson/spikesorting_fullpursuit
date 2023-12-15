@@ -77,13 +77,15 @@ def remove_artifacts(Probe, sigma, artifact_cushion, artifact_tol, n_artifact_ch
 
 
 def get_full_zca_matrix(data, rowvar=True):
-    """ Computes ZCA matrix for data. rowvar=False means that COLUMNS represent
-        variables and ROWS represent observations.  Else the opposite is used.
-        ZCA whitening is done with this matrix by calling:
-            zca_filtered_data = np.dot(zca_matrix, data).
-        The ZCA procedure was taken (and reformatted into 2 lines) from:
-        https://github.com/zellyn/deeplearning-class-2011/blob/master/ufldl/pca_2d/pca_2d.py
-        """
+    """ 
+    Computes ZCA matrix for data. rowvar=False means that COLUMNS represent
+    variables and ROWS represent observations.  Else the opposite is used.
+    ZCA whitening is done with this matrix by calling:
+        zca_filtered_data = np.dot(zca_matrix, data).
+    
+    The ZCA procedure was taken (and reformatted into 2 lines) from:
+    https://github.com/zellyn/deeplearning-class-2011/blob/master/ufldl/pca_2d/pca_2d.py
+    """
     if data.ndim == 1:
         return 1.
     elif data.shape[0] == 1:
