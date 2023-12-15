@@ -5,8 +5,6 @@ from os import path
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 
 
-
-
 def median_threshold(voltage, sigma):
     """
     Determines the per-channel threshold necessary for the detection of spikes.
@@ -25,7 +23,12 @@ def median_threshold(voltage, sigma):
     return thresholds
 
 
-def identify_threshold_crossings(chan_voltage, probe_dict, threshold, skip=0., align_window=[-5e-4, 5e-4]):
+def identify_threshold_crossings(
+        chan_voltage,
+        probe_dict,
+        threshold,
+        skip=0.,
+        align_window=[-5e-4, 5e-4]):
 
     sampling_rate = probe_dict['sampling_rate']
 
@@ -45,7 +48,7 @@ def identify_threshold_crossings(chan_voltage, probe_dict, threshold, skip=0., a
         start = max(0, events[evt] + window[0]) # Start maximally at 0 or event plus window
         stop = min(probe_dict['n_samples'] - 1, events[evt] + window[1])# Stop minmally at event plus window or last index
         window_clip = chan_voltage[start:stop]
-        max_index = np.argmax(window_clip) # Gets FIRST max in window
+        max_index = np.argmax(window_clip)  # Gets FIRST max in window
         max_value = window_clip[max_index]
         min_index = np.argmin(window_clip)
         min_value = window_clip[min_index]
@@ -118,8 +121,12 @@ def memmap_to_mem(memmap, dtype=None, order=None):
     return mem
 
 
-def get_windows_and_indices(clip_width, sampling_rate, channel, neighbors):
-    """ 
+def get_windows_and_indices(
+        clip_width,
+        sampling_rate,
+        channel,
+        neighbors):
+    """
     Computes some basic info used in many functions about how clips are
     are formatted and provides window indices and clip indices. 
     """
@@ -148,7 +155,12 @@ def calculate_templates(clips, neuron_labels):
     return templates, labels
 
 
-def align_events_with_template(probe_dict, chan_voltage, neuron_labels, event_indices, clip_width):
+def align_events_with_template(
+        probe_dict,
+        chan_voltage,
+        neuron_labels,
+        event_indices,
+        clip_width):
     """ 
     Takes the input data for ONE channel and computes the cross correlation
     of each spike with each template on the channel USING SINGLE CHANNEL CLIPS
@@ -181,8 +193,13 @@ def align_events_with_template(probe_dict, chan_voltage, neuron_labels, event_in
     return event_indices, neuron_labels, valid_inds
 
 
-def align_events_with_best_template(probe_dict, chan_voltage, neuron_labels, event_indices, clip_width):
-    """ 
+def align_events_with_best_template(
+        probe_dict,
+        chan_voltage,
+        neuron_labels,
+        event_indices,
+        clip_width):
+    """
     Takes the input data for ONE channel and computes the cross correlation
     of each spike with each template on the channel USING SINGLE CHANNEL CLIPS
     ONLY.  The spike time is then aligned with the peak cross correlation lag.
@@ -223,13 +240,19 @@ def align_events_with_best_template(probe_dict, chan_voltage, neuron_labels, eve
     return event_indices, neuron_labels, valid_inds
 
 
-def align_templates(probe_dict, chan_voltage, neuron_labels, event_indices, clip_width):
+def align_templates(
+        probe_dict,
+        chan_voltage,
+        neuron_labels,
+        event_indices,
+        clip_width):
     """ 
     Aligns templates to each other and shift their event indices accordingly.
 
-    This function determines the template for each cluster and then asks whether
-    each unit has a template with larger peak or valley. All templates are then
-    aligned such that their maximum absolute value is centered on the clip width. 
+    This function determines the template for each cluster and
+    then asks whether each unit has a template with larger peak
+    or valley. All templates are then aligned such that their maximum 
+    absolute value is centered on the clip width.
     """
 
     sampling_rate = probe_dict['sampling_rate']
@@ -257,8 +280,13 @@ def align_templates(probe_dict, chan_voltage, neuron_labels, event_indices, clip
     return event_indices, neuron_labels, valid_inds
 
 
-def wavelet_align_events(probe_dict, chan_voltage, event_indices,clip_width,
-                            band_width, use_memmap=False):
+def wavelet_align_events(
+        probe_dict,
+        chan_voltage,
+        event_indices,
+        clip_width,
+        band_width,
+        use_memmap=False):
     """ 
     Takes the input data for ONE channel and computes the cross correlation
     of each spike with each template on the channel USING SINGLE CHANNEL CLIPS
@@ -379,7 +407,7 @@ def wavelet_align_events(probe_dict, chan_voltage, event_indices,clip_width,
 
 
 def get_zero_phase_kernel(x, x_center):
-    """ 
+    """
     Zero pads the 1D kernel x, so that it is aligned with the current element
     of x located at x_center.  This ensures that convolution with the kernel
     x will be zero phase with respect to x_center.
@@ -402,8 +430,12 @@ def get_zero_phase_kernel(x, x_center):
     return kernel
 
 
-
-def get_singlechannel_clips(probe_dict, chan_voltage, event_indices, clip_width, use_memmap=False):
+def get_singlechannel_clips(
+        probe_dict,
+        chan_voltage,
+        event_indices,
+        clip_width,
+        use_memmap=False):
     """
 
     Given a probe and the threshold crossings, return a matrix of clips for a
@@ -465,13 +497,18 @@ def get_singlechannel_clips(probe_dict, chan_voltage, event_indices, clip_width,
     return spike_clips, valid_event_indices
 
 
-
-def get_clips(probe_dict, voltage, neighbors, event_indices, clip_width,
-                use_memmap=False, check_valid=True):
+def get_clips(
+        probe_dict,
+        voltage,
+        neighbors,
+        event_indices,
+        clip_width,
+        use_memmap=False,
+        check_valid=True):
     """
     This is like get_singlechannel_clips except it concatenates the clips for
     each channel input in the list 'neighbors' in the order that they appear.
-    Also works for single channel clips. 
+    Also works for single channel clips.
     
     Event indices is a single one dimensional array of indices over which clips from all input
     channels given by neighbors will be aligned. event_indices MUST BE ORDERED

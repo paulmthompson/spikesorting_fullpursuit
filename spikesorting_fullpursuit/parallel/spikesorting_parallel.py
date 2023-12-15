@@ -1,6 +1,7 @@
 import os
 import sys
 sys.path.append(os.getcwd())
+
 from shutil import rmtree
 import mkl
 import numpy as np
@@ -12,7 +13,6 @@ from spikesorting_fullpursuit.parallel import segment_parallel
 from spikesorting_fullpursuit import sort, preprocessing, full_binary_pursuit
 from spikesorting_fullpursuit.wiener_filter import wiener_filter_segment
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
-
 
 
 def spike_sorting_settings_parallel(**kwargs):
@@ -101,24 +101,37 @@ def spike_sorting_settings_parallel(**kwargs):
                     settings[key] = True
                 else:
                     settings[key] = False
-                print("Input setting '{0}' was converted to boolean value: ".format(key), settings[key])
+                print(
+                    "Input setting '{0}' was converted to \
+                        boolean value: ".format(key), settings[key]
+                        )
         if key in ['segment_duration', 'segment_overlap']:
             # Note actual relative values for overlap are checked in main function
             if settings[key] <= 0:
-                raise ValueError("Input setting '{0}' must be a postive number".format(key))
+                raise ValueError(
+                    "Input setting '{0}' must be a postive number".format(key)
+                    )
         if key in ['check_components', 'max_components']:
             if settings[key] <= 0  or type(settings[key]) != int:
-                raise ValueError("Input setting '{0}' must be a postive integer".format(key))
+                raise ValueError(
+                    "Input setting '{0}' must be a postive integer".format(key)
+                    )
         if key in ['min_firing_rate', 'sigma_bp_noise',
                     'max_binary_pursuit_clip_width_factor']:
             if settings[key] < 0:
-                print("Input setting '{0}' was invalid and converted to zero".format(key))
+                print(
+                    "Input setting '{0}' was invalid and \
+                        converted to zero".format(key)
+                    )
         if key in ['sigma_bp_CI']:
             if settings[key] is None:
                 settings[key] = np.inf
         if key in ['wiener_filter']:
             if not settings['sort_peak_clips_only']:
-                print("Wiener filter must use sort peak clips only. Setting to True.")
+                print(
+                    "Wiener filter must use sort peak clips only. \
+                        Setting to True.")
+
             settings['sort_peak_clips_only'] = True
         if key == 'memmap_dir':
             if settings['memmap_dir'] is None:
@@ -134,15 +147,23 @@ def spike_sorting_settings_parallel(**kwargs):
     return settings
 
 
-### Some helpful functions for watching memory usage ###
+# Some helpful functions for watching memory usage
 def bytes_to_GiB_MiB(n_bytes):
-    return n_bytes/2**30, (n_bytes%(2**30))/2**20
+    return n_bytes/2**30, (n_bytes % (2**30)) / 2**20
+
 
 def print_mem_usage(num=None):
     if num is None:
         num = ""
     process = psutil.Process(os.getpid())
-    print("Mem Usage num {0} is {1} GiB {2} MiB".format(num, bytes_to_GiB_MiB(process.memory_info().rss)[0], bytes_to_GiB_MiB(process.memory_info().rss)[1]), flush=True)
+    print(
+        "Mem Usage num {0} is {1} GiB {2} MiB".format(
+            num,
+            bytes_to_GiB_MiB(process.memory_info().rss)[0],
+            bytes_to_GiB_MiB(process.memory_info().rss)[1]
+            ),
+        flush=True
+        )
     return process.memory_info().rss
 
 ########################################################
@@ -152,7 +173,8 @@ def single_thresholds(voltage, sigma):
     """
     
     Args:
-        voltage (np.ndarray): Voltage array with shape (num_channels, num_samples)
+        voltage (np.ndarray): Voltage array with shape 
+        (num_channels, num_samples)
         sigma (float): Number of standard deviations to use for thresholding
 
     Returns:
@@ -173,12 +195,14 @@ def single_thresholds_and_samples(voltage, sigma):
     """
     
     Args:
-        voltage (np.ndarray): Voltage array with shape (num_channels, num_samples)
+        voltage (np.ndarray): Voltage array with shape
+            (num_channels, num_samples)
         sigma (float): Number of standard deviations to use for thresholding
 
     Returns:
         thresholds (np.ndarray): Thresholds for each channel (num_channels,)
-        samples_over_thresh (list): Number of samples over threshold for each channel (num_channels,)
+        samples_over_thresh (list): Number of samples over
+            threshold for each channel (num_channels,)
     """
     if voltage.ndim == 1:
         voltage = np.expand_dims(voltage, 0)
@@ -193,7 +217,11 @@ def single_thresholds_and_samples(voltage, sigma):
     return thresholds, samples_over_thresh
 
 
-def init_zca_voltage(seg_voltages_to_share, shapes_to_share, v_dtype):
+def init_zca_voltage(
+        seg_voltages_to_share,
+        shapes_to_share,
+        v_dtype):
+    
     # Make voltages global so they don't need to be pickled to share with processes
     global zca_pool_dict
     zca_pool_dict = {}
@@ -219,29 +247,38 @@ def init_zca_voltage_mmap(seg_voltages):
 
 
 def parallel_zca_and_threshold(seg_num, sigma, zca_cushion, n_samples):
-    """ 
+    """
     Multiprocessing wrapper for single_thresholds_and_samples and
     preprocessing.get_noise_sampled_zca_matrix to get the ZCA voltage for each
-    segment in parallel. 
+    segment in parallel.
 
     Args:
         seg_num
         sigma (float): Number of standard deviations to use for thresholding
-        zca_cushion (int): Number of samples to pad around each threshold crossing for ZCA whitening
-                        By default, this is 2 * the largest absolute value of the clip width
+        zca_cushion (int): Number of samples to pad around each threshold 
+            crossing for ZCA whitening
+            By default, this is 2 * the largest absolute value of
+            the clip width
         n_samples (int): Number of noise samples to use for ZCA whitening
 
     Global variables:
     """
-    mkl.set_num_threads(1) # Only 1 thread per process
+    mkl.set_num_threads(1)  # Only 1 thread per process
     # Get shared raw array voltage as numpy view
-    seg_voltage = np.frombuffer(zca_pool_dict['share_voltage'][seg_num][0],
-                    dtype=zca_pool_dict['voltage_dtype']).reshape(zca_pool_dict['share_voltage'][seg_num][1])
+    seg_voltage = np.frombuffer(
+        zca_pool_dict['share_voltage'][seg_num][0],
+        dtype=zca_pool_dict['voltage_dtype']
+        ).reshape(zca_pool_dict['share_voltage'][seg_num][1])
 
     # Plug numpy view into required functions
     thresholds = single_thresholds(seg_voltage, sigma)
-    zca_matrix = preprocessing.get_noise_sampled_zca_matrix(seg_voltage,
-                    thresholds, sigma, zca_cushion, n_samples)
+    zca_matrix = preprocessing.get_noise_sampled_zca_matrix(
+        seg_voltage,
+        thresholds,
+        sigma,
+        zca_cushion,
+        n_samples
+        )
 
     # @ makes new copy
     zca_seg_voltage = (zca_matrix @ seg_voltage).astype(zca_pool_dict['voltage_dtype'])
@@ -255,33 +292,46 @@ def parallel_zca_and_threshold(seg_num, sigma, zca_cushion, n_samples):
     return thresholds, seg_over_thresh, zca_matrix
 
 
-def parallel_zca_and_threshold_mmap(seg_num, sigma, zca_cushion, n_samples):
-    """ 
+def parallel_zca_and_threshold_mmap(
+        seg_num,
+        sigma,
+        zca_cushion,
+        n_samples):
+    """
     Multiprocessing wrapper for single_thresholds_and_samples and
     preprocessing.get_noise_sampled_zca_matrix to get the ZCA voltage for each
-    segment in parallel. 
+    segment in parallel.
 
     Args:
         seg_num
         sigma (float): Number of standard deviations to use for thresholding
-        zca_cushion (int): Number of samples to pad around each threshold crossing for ZCA whitening
-                        By default, this is 2 * the largest absolute value of the clip width
+        zca_cushion (int): Number of samples to pad around each threshold
+            crossing for ZCA whitening
+            By default, this is 2 * the largest absolute value of
+            the clip width
         n_samples (int): Number of noise samples to use for ZCA whitening
 
     Global variables:
     """
     mkl.set_num_threads(1) # Only 1 thread per process
     # Get shared raw array voltage as numpy view
-    seg_voltage_mmap = MemMapClose(zca_pool_dict['share_voltage'][seg_num][0],
-                            dtype=zca_pool_dict['share_voltage'][seg_num][1],
-                            mode='r+',
-                            shape=zca_pool_dict['share_voltage'][seg_num][2])
+    seg_voltage_mmap = MemMapClose(
+        zca_pool_dict['share_voltage'][seg_num][0],
+        dtype=zca_pool_dict['share_voltage'][seg_num][1],
+        mode='r+',
+        shape=zca_pool_dict['share_voltage'][seg_num][2]
+        )
     # Copy to memory cause ZCA selection/indexing is crazy
     seg_voltage = segment_parallel.memmap_to_mem(seg_voltage_mmap)
     # Plug numpy memmap view into required functions
     thresholds = single_thresholds(seg_voltage, sigma)
-    zca_matrix = preprocessing.get_noise_sampled_zca_matrix(seg_voltage,
-                    thresholds, sigma, zca_cushion, n_samples)
+    zca_matrix = preprocessing.get_noise_sampled_zca_matrix(
+        seg_voltage,
+        thresholds,
+        sigma,
+        zca_cushion,
+        n_samples
+        )
     # @ makes new copy
     zca_seg_voltage = (zca_matrix @ seg_voltage).astype(zca_pool_dict['share_voltage'][seg_num][1])
     # Get thresholds for newly ZCA'ed voltage
@@ -298,21 +348,29 @@ def parallel_zca_and_threshold_mmap(seg_num, sigma, zca_cushion, n_samples):
     return thresholds, seg_over_thresh, zca_matrix
 
 
-def threshold_and_zca_voltage_parallel(seg_voltages, sigma, zca_cushion,
-                                        n_samples=1e6, use_memmap=False):
-    """ 
+def threshold_and_zca_voltage_parallel(
+        seg_voltages,
+        sigma,
+        zca_cushion,
+        n_samples=1e6,
+        use_memmap=False):
+    """
     Use parallel processing to get thresholds and ZCA voltage for each segment
 
     Args:
-        seg_voltages (list): List of numpy arrays with shape (num_channels, num_samples). One array per segment.
+        seg_voltages (list): List of numpy arrays with shape
+            (num_channels, num_samples). One array per segment.
         sigma (float): Number of standard deviations to use for thresholding
-        zca_cushion (int): Number of samples to pad around each threshold crossing for ZCA whitening
-                        By default, this is 2 * the largest absolute value of the clip width
+        zca_cushion (int): Number of samples to pad around
+            each threshold crossing for ZCA whitening
+            By default, this is 2 * the largest absolute value of the
+            clip width
         n_samples (int): Number of noise samples to use for ZCA whitening
-        use_memmap (bool): If True, use memmap files to store voltages and ZCA matrices. Otherwise use shared multiprocessing arrays.
+        use_memmap (bool): If True, use memmap files to store voltages and 
+            ZCA matrices. Otherwise use shared multiprocessing arrays.
     """
-    n_threads = mkl.get_max_threads() # Incoming number of threads
-    n_processes = psutil.cpu_count(logical=True) # Use maximum processors
+    n_threads = mkl.get_max_threads()  # Incoming number of threads
+    n_processes = psutil.cpu_count(logical=True)  # Use maximum processors
 
     order_results = []
     # Run in main process so available in main
@@ -386,13 +444,21 @@ def print_process_info(title):
     print('process id:', os.getpid(), flush=True)
 
 
-"""
+def check_spike_alignment(
+        clips,
+        event_indices,
+        neuron_labels,
+        curr_chan_inds,
+        settings):
+    """
     Wavelet alignment can bounce back and forth based on noise blips if
     the spike waveform is nearly symmetric in peak/valley. This is all done
-    in memmory without memmaping because selection and copies is complex. """
-def check_spike_alignment(clips, event_indices, neuron_labels, curr_chan_inds,
-                         settings):
-    templates, labels = segment_parallel.calculate_templates(clips[:, curr_chan_inds[0]:curr_chan_inds[1]+1], neuron_labels)
+    in memmory without memmaping because selection and copies is complex.
+    """
+    templates, labels = segment_parallel.calculate_templates(
+        clips[:, curr_chan_inds[0]:curr_chan_inds[1]+1],
+        neuron_labels
+        )
     any_merged = False
     unit_inds_to_check = [x for x in range(0, len(templates))]
     previously_aligned_dict = {}
@@ -436,16 +502,22 @@ def check_spike_alignment(clips, event_indices, neuron_labels, curr_chan_inds,
         combined_clips = np.vstack((clips_1, clips_2))
         pseudo_labels = np.ones(combined_clips.shape[0], dtype=np.int64)
         pseudo_labels[clips_1.shape[0]:] = 2
-        scores = preprocessing.compute_pca(combined_clips,
-                    settings['check_components'], settings['max_components'],
-                    add_peak_valley=settings['add_peak_valley'],
-                    curr_chan_inds=np.arange(0, combined_clips.shape[1]))
-        pseudo_labels = sort.merge_clusters(scores, pseudo_labels,
-                            split_only = False, merge_only=True,
-                            p_value_cut_thresh=settings['p_value_cut_thresh'],
-                            match_cluster_size=settings['match_cluster_size'], 
-                            check_splits=settings['check_splits'],
-                            )
+        scores = preprocessing.compute_pca(
+            combined_clips,
+            settings['check_components'],
+            settings['max_components'],
+            add_peak_valley=settings['add_peak_valley'],
+            curr_chan_inds=np.arange(0, combined_clips.shape[1])
+            )
+        pseudo_labels = sort.merge_clusters(
+            scores,
+            pseudo_labels,
+            split_only=False,
+            merge_only=True,
+            p_value_cut_thresh=settings['p_value_cut_thresh'],
+            match_cluster_size=settings['match_cluster_size'],
+            check_splits=settings['check_splits'],
+            )
         if np.all(pseudo_labels == 1) or np.all(pseudo_labels == 2):
             any_merged = True
             if clips_1.shape[0] >= clips_2.shape[0]:
@@ -481,10 +553,18 @@ def check_spike_alignment(clips, event_indices, neuron_labels, curr_chan_inds,
     return event_indices, any_merged
 
 
-def branch_pca_2_0(neuron_labels, clips, curr_chan_inds, p_value_cut_thresh=0.01,
-                    add_peak_valley=False, check_components=None,
-                    max_components=None, use_rand_init=True, method='pca',
-                    match_cluster_size=False, check_splits=False):
+def branch_pca_2_0(
+        neuron_labels,
+        clips,
+        curr_chan_inds,
+        p_value_cut_thresh=0.01,
+        add_peak_valley=False,
+        check_components=None,
+        max_components=None,
+        use_rand_init=True,
+        method='pca',
+        match_cluster_size=False,
+        check_splits=False):
     """
     """
     neuron_labels_copy = np.copy(neuron_labels)
@@ -503,20 +583,36 @@ def branch_pca_2_0(neuron_labels, clips, curr_chan_inds, p_value_cut_thresh=0.01
 
         # Re-cluster and sort using only clips from current cluster
         if method.lower() == 'pca':
-            scores = preprocessing.compute_pca(clust_clips, check_components, max_components,
-                        add_peak_valley=add_peak_valley, curr_chan_inds=curr_chan_inds)
+            scores = preprocessing.compute_pca(
+                clust_clips,
+                check_components,
+                max_components,
+                add_peak_valley=add_peak_valley,
+                curr_chan_inds=curr_chan_inds
+                )
         elif method.lower() == 'chan_pca':
-            scores = preprocessing.compute_pca_by_channel(clust_clips, curr_chan_inds,
-                        check_components, max_components, add_peak_valley=add_peak_valley)
+            scores = preprocessing.compute_pca_by_channel(
+                clust_clips,
+                curr_chan_inds,
+                check_components,
+                max_components,
+                add_peak_valley=add_peak_valley
+                )
         else:
             raise ValueError("Branch method must be either 'pca', or 'chan_pca'.")
         n_random = max(100, np.around(clust_clips.shape[0] / 100)) if use_rand_init else 0
-        clust_labels = sort.initial_cluster_farthest(scores, median_cluster_size, n_random=n_random)
-        clust_labels = sort.merge_clusters(scores, clust_labels,
-                        p_value_cut_thresh=p_value_cut_thresh,
-                        match_cluster_size=match_cluster_size, 
-                        check_splits=check_splits,
-                        )
+        clust_labels = sort.initial_cluster_farthest(
+            scores,
+            median_cluster_size,
+            n_random=n_random
+            )
+        clust_labels = sort.merge_clusters(
+            scores,
+            clust_labels,
+            p_value_cut_thresh=p_value_cut_thresh,
+            match_cluster_size=match_cluster_size, 
+            check_splits=check_splits,
+            )
         new_labels = np.unique(clust_labels)
         if new_labels.size > 1:
             # Found at least one new cluster within original so reassign labels
@@ -537,6 +633,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
     # Initialize variables in case this exits on error
     crossings, neuron_labels = [], []
     exit_type = None
+
     def wrap_up():
         delete_clip_memmap()
         data_dict['results_dict'][work_item['ID']] = [crossings, neuron_labels]
@@ -546,6 +643,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         for cpu in use_cpus:
             data_dict['cpu_queue'].put(cpu)
         return
+
     def delete_clip_memmap():
         try:
             clip_fname = os.path.join(settings['memmap_dir'], "{0}clips_{1}.bin".format(settings['memmap_fID'], str(work_item['ID'])))
@@ -602,7 +700,13 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         if settings['verbose']: print("Identifying threshold crossings", flush=True)
         # Note that n_crossings is NOT just len(crossings)! It is the raw number
         # of threshold crossings. Values of crossings obey skip and align window.
-        crossings, n_crossings = segment_parallel.identify_threshold_crossings(voltage[chan, :], item_dict, item_dict['thresholds'][chan], skip=skip, align_window=align_window)
+        crossings, n_crossings = segment_parallel.identify_threshold_crossings(
+            voltage[chan, :],
+            item_dict,
+            item_dict['thresholds'][chan],
+            skip=skip,
+            align_window=align_window
+            )
         if crossings.size == 0:
             exit_type = "No crossings over threshold."
             # Raise error to force exit and wrap_up()
@@ -613,22 +717,42 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         min_cluster_size = (np.floor(settings['min_firing_rate'] * item_dict['n_samples'] / item_dict['sampling_rate'])).astype(np.int64)
         if min_cluster_size < 1:
             min_cluster_size = 1
-        if settings['verbose']: print("Using minimum cluster size of", min_cluster_size, flush=True)
-        _, _, clip_samples, _, curr_chan_inds = segment_parallel.get_windows_and_indices(settings['clip_width'], item_dict['sampling_rate'], chan, neighbors)
+        if settings['verbose']:
+            print(
+                "Using minimum cluster size of",
+                min_cluster_size, flush=True)
+
+        _, _, clip_samples, _, curr_chan_inds = segment_parallel.get_windows_and_indices(
+            settings['clip_width'],
+            item_dict['sampling_rate'],
+            chan,
+            neighbors
+            )
 
         exit_type = "Found crossings"
 
         # Realign spikes based on a common wavelet
         crossings = segment_parallel.wavelet_align_events(
-                            item_dict, voltage[chan, :], crossings,
-                            settings['clip_width'],
-                            settings['filter_band'],
-                            use_memmap=settings['use_memmap'])
+            item_dict,
+            voltage[chan, :],
+            crossings,
+            settings['clip_width'],
+            settings['filter_band'],
+            use_memmap=settings['use_memmap']
+            )
 
-        clips, valid_event_indices = segment_parallel.get_clips(item_dict,
-                        voltage, neighbors, crossings,
-                        clip_width=settings['clip_width'], use_memmap=settings['use_memmap'])
-        crossings = segment_parallel.keep_valid_inds([crossings], valid_event_indices)
+        clips, valid_event_indices = segment_parallel.get_clips(
+            item_dict,
+            voltage,
+            neighbors,
+            crossings,
+            clip_width=settings['clip_width'],
+            use_memmap=settings['use_memmap']
+            )
+        crossings = segment_parallel.keep_valid_inds(
+            [crossings],
+            valid_event_indices
+            )
         if settings['sort_peak_clips_only']:
             keep_clips = preprocessing.keep_max_on_main(clips, curr_chan_inds)
             crossings = crossings[keep_clips]
@@ -637,14 +761,26 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 if isinstance(clips, np.memmap):
                     clips._mmap.close()
                     del clips
-                clips, valid_event_indices = segment_parallel.get_clips(item_dict,
-                                voltage, neighbors, crossings,
-                                clip_width=settings['clip_width'], use_memmap=settings['use_memmap'])
-                crossings = segment_parallel.keep_valid_inds([crossings], valid_event_indices)
+                clips, valid_event_indices = segment_parallel.get_clips(
+                    item_dict,
+                    voltage,
+                    neighbors,
+                    crossings,
+                    clip_width=settings['clip_width'],
+                    use_memmap=settings['use_memmap']
+                    )
+                crossings = segment_parallel.keep_valid_inds(
+                    [crossings],
+                    valid_event_indices
+                    )
             else:
                 clips = clips[keep_clips, :]
             curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
-            if settings['verbose']: print("After keep max on main removed", np.count_nonzero(~keep_clips), "clips", flush=True)
+            if settings['verbose']:
+                print(
+                    "After keep max on main removed",
+                    np.count_nonzero(~keep_clips), "clips", flush=True)
+
         if crossings.size == 0:
             exit_type = "No crossings over threshold."
             # Raise error to force exit and wrap_up()
@@ -660,56 +796,100 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         median_cluster_size = min(100, int(np.around(crossings.size / 1000)))
         if crossings.size > 1:
             # MUST SLICE curr_chan_inds to get a view instead of copy
-            scores = preprocessing.compute_pca(clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
-                        settings['check_components'], settings['max_components'], add_peak_valley=settings['add_peak_valley'],
-                        curr_chan_inds=np.arange(0, curr_chan_inds.size))
+            scores = preprocessing.compute_pca(
+                clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
+                settings['check_components'],
+                settings['max_components'],
+                add_peak_valley=settings['add_peak_valley'],
+                curr_chan_inds=np.arange(0, curr_chan_inds.size)
+                )
             n_random = max(100, np.around(crossings.size / 100)) if settings['use_rand_init'] else 0
-            neuron_labels = sort.initial_cluster_farthest(scores, median_cluster_size, n_random=n_random)
-            neuron_labels = sort.merge_clusters(scores, neuron_labels,
-                                split_only = False,
-                                p_value_cut_thresh=settings['p_value_cut_thresh'],
-                                match_cluster_size=settings['match_cluster_size'], 
-                                check_splits=settings['check_splits'],
-                                )
+            neuron_labels = sort.initial_cluster_farthest(
+                scores,
+                median_cluster_size,
+                n_random=n_random
+                )
+            neuron_labels = sort.merge_clusters(
+                scores,
+                neuron_labels,
+                split_only=False,
+                p_value_cut_thresh=settings['p_value_cut_thresh'],
+                match_cluster_size=settings['match_cluster_size'], 
+                check_splits=settings['check_splits'],
+                )
 
             curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
-            if settings['verbose']: print("After first sort", curr_num_clusters.size, "different clusters", flush=True)
+            if settings['verbose']:
+                print(
+                    "After first sort", curr_num_clusters.size,
+                    "different clusters", flush=True)
 
             if settings['sort_peak_clips_only']:
                 crossings, neuron_labels, _ = segment_parallel.align_events_with_template(
-                                item_dict, voltage[chan, :], neuron_labels, crossings,
-                                clip_width=settings['clip_width'])
+                    item_dict,
+                    voltage[chan, :],
+                    neuron_labels,
+                    crossings,
+                    clip_width=settings['clip_width'])
 
                 crossings, neuron_labels, _ = segment_parallel.align_templates(
-                                item_dict, voltage[chan, :], neuron_labels, crossings,
-                                clip_width=settings['clip_width'])
+                    item_dict,
+                    voltage[chan, :],
+                    neuron_labels,
+                    crossings,
+                    clip_width=settings['clip_width']
+                    )
                 if isinstance(clips, np.memmap):
                     clips._mmap.close()
                     del clips
                 clips, valid_event_indices = segment_parallel.get_clips(
-                                                item_dict, voltage, neighbors,
-                                                crossings, clip_width=settings['clip_width'],
-                                                use_memmap=settings['use_memmap'])
+                    item_dict,
+                    voltage,
+                    neighbors,
+                    crossings,
+                    clip_width=settings['clip_width'],
+                    use_memmap=settings['use_memmap']
+                    )
                 crossings, neuron_labels = segment_parallel.keep_valid_inds(
-                        [crossings, neuron_labels], valid_event_indices)
+                    [crossings, neuron_labels], 
+                    valid_event_indices
+                    )
 
-                scores = preprocessing.compute_pca(clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
-                            settings['check_components'], settings['max_components'], add_peak_valley=settings['add_peak_valley'],
-                            curr_chan_inds=np.arange(0, curr_chan_inds.size))
+                scores = preprocessing.compute_pca(
+                    clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
+                    settings['check_components'],
+                    settings['max_components'],
+                    add_peak_valley=settings['add_peak_valley'],
+                    curr_chan_inds=np.arange(0, curr_chan_inds.size)
+                    )
                 n_random = max(100, np.around(crossings.size / 100)) if settings['use_rand_init'] else 0
-                neuron_labels = sort.initial_cluster_farthest(scores, median_cluster_size, n_random=n_random)
-                neuron_labels = sort.merge_clusters(scores, neuron_labels,
-                                    split_only = False,
-                                    p_value_cut_thresh=settings['p_value_cut_thresh'],
-                                    match_cluster_size=settings['match_cluster_size'], 
-                                    check_splits=settings['check_splits'],
-                                    )
+
+                neuron_labels = sort.initial_cluster_farthest(
+                    scores,
+                    median_cluster_size,
+                    n_random=n_random)
+
+                neuron_labels = sort.merge_clusters(
+                    scores,
+                    neuron_labels,
+                    split_only=False,
+                    p_value_cut_thresh=settings['p_value_cut_thresh'],
+                    match_cluster_size=settings['match_cluster_size'],
+                    check_splits=settings['check_splits'],
+                    )
 
                 curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
-                if settings['verbose']: print("After re-sort", curr_num_clusters.size, "different clusters", flush=True)
+                if settings['verbose']:
+                    print(
+                        "After re-sort", curr_num_clusters.size,
+                        "different clusters", flush=True)
 
-            crossings, any_merged = check_spike_alignment(clips,
-                            crossings, neuron_labels, curr_chan_inds, settings)
+            crossings, any_merged = check_spike_alignment(
+                                        clips,
+                                        crossings,
+                                        neuron_labels,
+                                        curr_chan_inds,
+                                        settings)
             if any_merged:
                 # Resort based on new clip alignment
                 if settings['verbose']: print("Re-sorting after check spike alignment")
@@ -717,72 +897,116 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     clips._mmap.close()
                     del clips
                 clips, valid_event_indices = segment_parallel.get_clips(
-                                                item_dict, voltage, neighbors,
-                                                crossings, clip_width=settings['clip_width'],
-                                                use_memmap=settings['use_memmap'])
+                    item_dict,
+                    voltage,
+                    neighbors,
+                    crossings,
+                    clip_width=settings['clip_width'],
+                    use_memmap=settings['use_memmap'])
                 crossings = segment_parallel.keep_valid_inds([crossings], valid_event_indices)
-                scores = preprocessing.compute_pca(clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
-                            settings['check_components'], settings['max_components'], add_peak_valley=settings['add_peak_valley'],
-                            curr_chan_inds=np.arange(0, curr_chan_inds.size))
+                scores = preprocessing.compute_pca(
+                    clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
+                    settings['check_components'],
+                    settings['max_components'],
+                    add_peak_valley=settings['add_peak_valley'],
+                    curr_chan_inds=np.arange(0, curr_chan_inds.size))
                 n_random = max(100, np.around(crossings.size / 100)) if settings['use_rand_init'] else 0
-                neuron_labels = sort.initial_cluster_farthest(scores, median_cluster_size, n_random=n_random)
-                neuron_labels = sort.merge_clusters(scores, neuron_labels,
-                                    split_only = False,
-                                    p_value_cut_thresh=settings['p_value_cut_thresh'],
-                                    match_cluster_size=settings['match_cluster_size'], 
-                                    check_splits=settings['check_splits'],
-                                    )
+
+                neuron_labels = sort.initial_cluster_farthest(
+                    scores,
+                    median_cluster_size,
+                    n_random=n_random
+                    )
+                
+                neuron_labels = sort.merge_clusters(
+                    scores, 
+                    neuron_labels,
+                    split_only=False,
+                    p_value_cut_thresh=settings['p_value_cut_thresh'],
+                    match_cluster_size=settings['match_cluster_size'], 
+                    check_splits=settings['check_splits'],
+                    )
 
             curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
         else:
             neuron_labels = np.zeros(1, dtype=np.int64)
             curr_num_clusters = np.zeros(1, dtype=np.int64)
-        if settings['verbose']: print("Currently", curr_num_clusters.size, "different clusters", flush=True)
+        if settings['verbose']: 
+            print(
+                "Currently", curr_num_clusters.size,
+                "different clusters", flush=True
+                )
 
         crossings, neuron_labels, _ = segment_parallel.align_events_with_template(
-                        item_dict, voltage[chan, :], neuron_labels, crossings,
-                        clip_width=settings['clip_width'])
+            item_dict,
+            voltage[chan, :],
+            neuron_labels,
+            crossings,
+            clip_width=settings['clip_width'])
+        
         if isinstance(clips, np.memmap):
             clips._mmap.close()
             del clips
         clips, valid_event_indices = segment_parallel.get_clips(
-                                        item_dict, voltage, neighbors,
-                                        crossings, clip_width=settings['clip_width'],
-                                        use_memmap=settings['use_memmap'])
+            item_dict,
+            voltage,
+            neighbors,
+            crossings,
+            clip_width=settings['clip_width'],
+            use_memmap=settings['use_memmap']
+            )
         crossings, neuron_labels = segment_parallel.keep_valid_inds(
-                [crossings, neuron_labels], valid_event_indices)
+            [crossings, neuron_labels], 
+            valid_event_indices
+            )
 
         # Remove deviant clips before doing branch PCA to avoid getting clusters
         # of overlaps or garbage
-        keep_clips = preprocessing.cleanup_clusters(clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1], neuron_labels)
+        keep_clips = preprocessing.cleanup_clusters(
+            clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
+            neuron_labels
+            )
         crossings, neuron_labels = segment_parallel.keep_valid_inds(
-                [crossings, neuron_labels], keep_clips)
+            [crossings, neuron_labels],
+            keep_clips
+            )
         if settings['use_memmap']:
             # Need to recompute clips here because we can't get a memmap view
             if isinstance(clips, np.memmap):
                 clips._mmap.close()
                 del clips
-            clips, valid_event_indices = segment_parallel.get_clips(item_dict,
-                            voltage, neighbors, crossings,
-                            clip_width=settings['clip_width'], use_memmap=settings['use_memmap'])
+            clips, valid_event_indices = segment_parallel.get_clips(
+                item_dict,
+                voltage,
+                neighbors,
+                crossings,
+                clip_width=settings['clip_width'],
+                use_memmap=settings['use_memmap']
+                )
         else:
             clips = clips[keep_clips, :]
 
         # Single channel branch
         if curr_num_clusters.size > 1 and settings['do_branch_PCA']:
-            neuron_labels = branch_pca_2_0(neuron_labels, clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
-                                np.arange(0, curr_chan_inds.size),
-                                p_value_cut_thresh=settings['p_value_cut_thresh'],
-                                add_peak_valley=settings['add_peak_valley'],
-                                check_components=settings['check_components'],
-                                max_components=settings['max_components'],
-                                use_rand_init=settings['use_rand_init'],
-                                method='pca',
-                                match_cluster_size=settings['match_cluster_size'], 
-                                check_splits=settings['check_splits'],
-                                )
+            neuron_labels = branch_pca_2_0(
+                neuron_labels,
+                clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
+                np.arange(0, curr_chan_inds.size),
+                p_value_cut_thresh=settings['p_value_cut_thresh'],
+                add_peak_valley=settings['add_peak_valley'],
+                check_components=settings['check_components'],
+                max_components=settings['max_components'],
+                use_rand_init=settings['use_rand_init'],
+                method='pca',
+                match_cluster_size=settings['match_cluster_size'],
+                check_splits=settings['check_splits'],
+                )
             curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
-            if settings['verbose']: print("After SINGLE BRANCH", curr_num_clusters.size, "different clusters", flush=True)
+            if settings['verbose']: 
+                print(
+                    "After SINGLE BRANCH", curr_num_clusters.size,
+                    "different clusters", flush=True)
+
         if settings['do_branch_PCA']:
             # Remove deviant clips before doing branch PCA to avoid getting clusters
             # of overlaps or garbage, this time on full neighborhood
@@ -794,40 +1018,57 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 if isinstance(clips, np.memmap):
                     clips._mmap.close()
                     del clips
-                clips, valid_event_indices = segment_parallel.get_clips(item_dict,
-                                voltage, neighbors, crossings,
-                                clip_width=settings['clip_width'], use_memmap=settings['use_memmap'])
+                clips, valid_event_indices = segment_parallel.get_clips(
+                    item_dict,
+                    voltage,
+                    neighbors,
+                    crossings,
+                    clip_width=settings['clip_width'],
+                    use_memmap=settings['use_memmap']
+                    )
             else:
                 clips = clips[keep_clips, :]
 
         # Multi channel branch
         if data_dict['num_channels'] > 1 and settings['do_branch_PCA']:
-            neuron_labels = branch_pca_2_0(neuron_labels, clips, curr_chan_inds,
-                                p_value_cut_thresh=settings['p_value_cut_thresh'],
-                                add_peak_valley=settings['add_peak_valley'],
-                                check_components=settings['check_components'],
-                                max_components=settings['max_components'],
-                                use_rand_init=settings['use_rand_init'],
-                                method='pca',
-                                match_cluster_size=settings['match_cluster_size'], 
-                                check_splits=settings['check_splits'],
-                                )
+            neuron_labels = branch_pca_2_0(
+                neuron_labels,
+                clips,
+                curr_chan_inds,
+                p_value_cut_thresh=settings['p_value_cut_thresh'],
+                add_peak_valley=settings['add_peak_valley'],
+                check_components=settings['check_components'],
+                max_components=settings['max_components'],
+                use_rand_init=settings['use_rand_init'],
+                method='pca',
+                match_cluster_size=settings['match_cluster_size'], 
+                check_splits=settings['check_splits'],
+                )
             curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
-            if settings['verbose']: print("After MULTI BRANCH", curr_num_clusters.size, "different clusters", flush=True)
+            if settings['verbose']: 
+                print(
+                    "After MULTI BRANCH", curr_num_clusters.size,
+                    "different clusters", flush=True)
         # Multi channel branch by channel
         if data_dict['num_channels'] > 1 and settings['do_branch_PCA_by_chan'] and settings['do_branch_PCA']:
-            neuron_labels = branch_pca_2_0(neuron_labels, clips, curr_chan_inds,
-                                p_value_cut_thresh=settings['p_value_cut_thresh'],
-                                add_peak_valley=settings['add_peak_valley'],
-                                check_components=settings['check_components'],
-                                max_components=settings['max_components'],
-                                use_rand_init=settings['use_rand_init'],
-                                method='chan_pca',
-                                match_cluster_size=settings['match_cluster_size'], 
-                                check_splits=settings['check_splits'],
-                                )
+            neuron_labels = branch_pca_2_0(
+                neuron_labels,
+                clips,
+                curr_chan_inds,
+                p_value_cut_thresh=settings['p_value_cut_thresh'],
+                add_peak_valley=settings['add_peak_valley'],
+                check_components=settings['check_components'],
+                max_components=settings['max_components'],
+                use_rand_init=settings['use_rand_init'],
+                method='chan_pca',
+                match_cluster_size=settings['match_cluster_size'], 
+                check_splits=settings['check_splits'],
+                )
             curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
-            if settings['verbose']: print("After MULTI BRANCH by channel", curr_num_clusters.size, "different clusters", flush=True)
+            if settings['verbose']: 
+                print(
+                    "After MULTI BRANCH by channel",
+                    curr_num_clusters.size, "different clusters", flush=True)
 
         # Delete any clusters under min_cluster_size before binary pursuit
         if settings['verbose']: print("Current smallest cluster has", np.amin(n_per_cluster), "spikes", flush=True)
@@ -849,7 +1090,13 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         exit_type = "Finished sorting clusters"
 
         # Realign spikes based on correlation with current cluster templates before doing binary pursuit
-        crossings, neuron_labels, valid_inds = segment_parallel.align_events_with_template(item_dict, voltage[chan, :], neuron_labels, crossings, clip_width=settings['clip_width'])
+        crossings, neuron_labels, valid_inds = segment_parallel.align_events_with_template(
+            item_dict,
+            voltage[chan, :],
+            neuron_labels,
+            crossings,
+            clip_width=settings['clip_width']
+            )
 
         if settings['verbose']: print("currently", np.unique(neuron_labels).size, "different clusters", flush=True)
         # Map labels starting at zero and put labels in order
@@ -915,8 +1162,20 @@ def deploy_parallel_sort(manager, cpu_queue, cpu_alloc, work_items, init_dict, s
         n_complete = len(data_dict['completed_items']) # Do once to avoid race
         if n_complete > completed_items_index:
             for ci in range(completed_items_index, n_complete):
-                print("Completed item", work_items[data_dict['completed_items'][ci]]['ID'], "from chan", work_items[data_dict['completed_items'][ci]]['channel'], "segment", work_items[data_dict['completed_items'][ci]]['seg_number']+1)
-                print("Exited with status: ", data_dict['exits_dict'][data_dict['completed_items'][ci]])
+                print(
+                    "Completed item",
+                    work_items[data_dict['completed_items'][ci]]['ID'],
+                    "from chan",
+                    work_items[data_dict['completed_items'][ci]]['channel'],
+                    "segment",
+                    work_items[data_dict['completed_items'][ci]]['seg_number']+1
+                    )
+
+                print(
+                    "Exited with status: ",
+                    data_dict['exits_dict'][data_dict['completed_items'][ci]]
+                    )
+
                 completed_items_index += 1
                 if not settings['test_flag']:
                     done_index = proc_item_index.index(data_dict['completed_items'][ci])
@@ -938,23 +1197,39 @@ def deploy_parallel_sort(manager, cpu_queue, cpu_alloc, work_items, init_dict, s
             # Make sure voltage buffer is available for this process
             if w_item['seg_number'] not in data_dict['segment_voltages'].keys():
                 # Get memmap segment voltage
-                seg_voltage_mmap = MemMapClose(data_dict['seg_v_files'][w_item['seg_number']][0],
-                                        dtype=data_dict['seg_v_files'][w_item['seg_number']][1],
-                                        mode='r',
-                                        shape=data_dict['seg_v_files'][w_item['seg_number']][2])
+                seg_voltage_mmap = MemMapClose(
+                    data_dict['seg_v_files'][w_item['seg_number']][0],
+                    dtype=data_dict['seg_v_files'][w_item['seg_number']][1],
+                    mode='r',
+                    shape=data_dict['seg_v_files'][w_item['seg_number']][2])
                 # Create shared raw voltage array
                 data_dict['segment_voltages'][w_item['seg_number']] = [
-                        mp.RawArray(np.ctypeslib.as_ctypes_type(data_dict['seg_v_files'][w_item['seg_number']][1]),
-                        seg_voltage_mmap.size), seg_voltage_mmap.shape]
-                np_view = np.frombuffer(data_dict['segment_voltages'][w_item['seg_number']][0],
-                                        dtype=data_dict['seg_v_files'][w_item['seg_number']][1]).reshape(seg_voltage_mmap.shape) # Create numpy view
-                np.copyto(np_view, seg_voltage_mmap) # Copy segment voltage to voltage buffer
+                        mp.RawArray(
+                            np.ctypeslib.as_ctypes_type(
+                                data_dict['seg_v_files'][w_item['seg_number']][1]),
+                            seg_voltage_mmap.size
+                            ),
+                        seg_voltage_mmap.shape
+                        ]
+                np_view = np.frombuffer(
+                    data_dict['segment_voltages'][w_item['seg_number']][0],
+                    dtype=data_dict['seg_v_files'][w_item['seg_number']][1]
+                    ).reshape(seg_voltage_mmap.shape)
+                np.copyto(np_view, seg_voltage_mmap)  # Copy segment voltage to voltage buffer
                 if isinstance(seg_voltage_mmap, np.memmap):
                     seg_voltage_mmap._mmap.close()
                     del seg_voltage_mmap
 
         if not settings['test_flag']:
-            print("Starting item {0}/{1} on CPUs {2} for channel {3} segment {4}".format(wi_ind+1, len(work_items), use_cpus, w_item['channel'], w_item['seg_number']+1))
+            print(
+                "Starting item {0}/{1} on CPUs {2} for channel {3} \
+                    segment {4}".format(
+                        wi_ind+1,
+                        len(work_items),
+                        use_cpus,
+                        w_item['channel'],
+                        w_item['seg_number']+1)
+                        )
             time.sleep(.5) # NEED SLEEP SO PROCESSES AREN'T MADE TOO FAST AND FAIL!!!
 
             proc_item_index.append(wi_ind)
@@ -989,8 +1264,15 @@ def deploy_parallel_sort(manager, cpu_queue, cpu_alloc, work_items, init_dict, s
                 # This item was already finished above so just clearing out
                 # completed_items_queue
                 continue
-            print("Completed item", finished_item+1, "from chan", work_items[finished_item]['channel'], "segment", work_items[finished_item]['seg_number']+1)
-            print("Exited with status: ", data_dict['exits_dict'][finished_item])
+            print(
+                "Completed item", finished_item+1,
+                "from chan", work_items[finished_item]['channel'],
+                "segment", work_items[finished_item]['seg_number']+1
+                )
+
+            print(
+                "Exited with status: ", data_dict['exits_dict'][finished_item]
+                )
             completed_items_index += 1
 
             del proc_item_index[done_index]
@@ -1087,33 +1369,53 @@ def spike_sort_parallel(Probe, **kwargs):
     try:
         check_neighbors = Probe.get_neighbors(0)
     except:
-        raise ValueError("Input Probe object must have a valid get_neighbors() method.")
+        raise ValueError(
+            "Input Probe object must have a valid get_neighbors() method."
+            )
     if type(check_neighbors) != np.ndarray:
-        raise ValueError("Probe get_neighbors() method must return a numpy ndarray of dtype np.int64.")
+        raise ValueError(
+            "Probe get_neighbors() method must return a numpy ndarray of \
+                dtype np.int64."
+            )
     elif check_neighbors.dtype != np.int64:
-        print (check_neighbors.dtype)
-        raise ValueError("Probe get_neighbors() method must return a numpy ndarray of dtype np.int64.")
+        print(check_neighbors.dtype)
+        raise ValueError(
+            "Probe get_neighbors() method must return a \
+                numpy ndarray of dtype np.int64."
+            )
     elif np.any(np.diff(check_neighbors) <= 0):
-        raise ValueError("Probe get_neighbors() method must return neighbor channels IN ORDER without duplicates.")
+        raise ValueError(
+            "Probe get_neighbors() method must return \
+                neighbor channels IN ORDER without duplicates."
+            )
     # For convenience, necessary to define clip width as negative for first entry
     if settings['clip_width'][0] > 0:
         settings['clip_width'] *= -1
     manager = mp.Manager()
-    init_dict = {'num_channels': Probe.num_channels, 'sampling_rate': Probe.sampling_rate,
-                 'v_dtype': Probe.v_dtype, 'gpu_lock': manager.Lock(),
-                 'filter_band': settings['filter_band']}
+    init_dict = {
+        'num_channels': Probe.num_channels,
+        'sampling_rate': Probe.sampling_rate,
+        'v_dtype': Probe.v_dtype,
+        'gpu_lock': manager.Lock(),
+        'filter_band': settings['filter_band']
+        }
     if settings['log_dir'] is not None:
         if os.path.exists(settings['log_dir']):
             rmtree(settings['log_dir'])
-            time.sleep(.5) # NEED SLEEP SO CAN DELETE BEFORE RECREATING!!!
+            time.sleep(.5)  # NEED SLEEP SO CAN DELETE BEFORE RECREATING!!!
         os.makedirs(settings['log_dir'])
     # Perform artifact removal on input Probe voltage
     if settings['remove_artifacts']:
         if Probe.num_channels == 1:
             raise ValueError("Cannot do artifact detection on only 1 channel. Check input settings.")
-        Probe = preprocessing.remove_artifacts(Probe, settings['sigma'],
-                        settings['artifact_cushion'], settings['artifact_tol'],
-                        settings['n_artifact_chans'])
+
+        Probe = preprocessing.remove_artifacts(
+            Probe,
+            settings['sigma'],
+            settings['artifact_cushion'],
+            settings['artifact_tol'],
+            settings['n_artifact_chans']
+            )
     # Convert segment duration and overlaps to indices from their values input
     # in seconds and adjust as needed
     if (settings['segment_duration'] is None) or (settings['segment_duration'] == np.inf) \
@@ -1124,7 +1426,10 @@ def spike_sort_parallel(Probe, **kwargs):
         if settings['segment_overlap'] is None:
             # If segment is specified with no overlap, use minimal overlap that
             # will not miss spikes on the edges
-            clip_samples = segment_parallel.time_window_to_samples(settings['clip_width'], Probe.sampling_rate)[0]
+            clip_samples = segment_parallel.time_window_to_samples(
+                settings['clip_width'],
+                Probe.sampling_rate
+                )[0]
             settings['segment_overlap'] = int(3 * (clip_samples[1] - clip_samples[0]))
         elif settings['segment_overlap'] <= 0:
             # If segment is specified with no overlap, use minimal overlap that
@@ -1146,7 +1451,15 @@ def spike_sort_parallel(Probe, **kwargs):
         # given fixed, unaltered input overlap duration
         settings['segment_duration'] = int(np.ceil((Probe.n_samples
                         + n_segs * settings['segment_overlap']) / (n_segs + 1)))
-        print("Input segment duration was rounded from", input_duration_seconds, "up to", settings['segment_duration']/Probe.sampling_rate, "seconds to make segments equal length.")
+
+        print(
+            "Input segment duration was rounded from",
+            input_duration_seconds,
+            "up to",
+            settings['segment_duration']/Probe.sampling_rate,
+            "seconds to make segments equal length."
+            )
+        
     settings['n_threshold_crossings'] = np.zeros(Probe.num_channels)
 
     segment_onsets = []
@@ -1200,10 +1513,19 @@ def spike_sort_parallel(Probe, **kwargs):
             # "threshold_and_zca_voltage_parallel" to update data and avoid
             # making twice
             # Use parallel processing to get zca voltage and thresholds
-            if settings['verbose']: print("Doing parallel ZCA transform and thresholding for", len(segment_onsets), "segments")
+            if settings['verbose']:
+                print(
+                    "Doing parallel ZCA transform and thresholding for",
+                    len(segment_onsets), "segments"
+                    )
+
             thresholds_list, seg_over_thresh_list, seg_zca_mats = threshold_and_zca_voltage_parallel(
-                                seg_voltages, settings['sigma'], zca_cushion,
-                                n_samples=1e6, use_memmap=settings['use_memmap'])
+                seg_voltages,
+                settings['sigma'],
+                zca_cushion,
+                n_samples=1e6,
+                use_memmap=settings['use_memmap']
+                )
             for x in seg_over_thresh_list:
                 samples_over_thresh.extend(x)
             if not settings['use_memmap']:
@@ -1216,21 +1538,38 @@ def spike_sort_parallel(Probe, **kwargs):
                 # Need to copy or else ZCA transforms will duplicate in overlapping
                 # time segments. Copy happens during matrix multiplication
                 if settings['use_memmap']:
-                    seg_voltage_mmap = MemMapClose(seg_voltages[x][0],
-                                            dtype=seg_voltages[x][1],
-                                            mode='r+',
-                                            shape=seg_voltages[x][2])
+                    seg_voltage_mmap = MemMapClose(
+                        seg_voltages[x][0],
+                        dtype=seg_voltages[x][1],
+                        mode='r+',
+                        shape=seg_voltages[x][2]
+                        )
                     # Copy to memory cause ZCA selction/indexing is crazy
                     seg_voltage = segment_parallel.memmap_to_mem(seg_voltage_mmap)
                 else:
                     seg_voltage = seg_voltages[x]
                 if settings['do_ZCA_transform']:
-                    if settings['verbose']: print("Finding voltage and thresholds for segment", x+1, "of", len(segment_onsets))
-                    if settings['verbose']: print("Doing ZCA transform")
-                    thresholds = single_thresholds(seg_voltage, settings['sigma'])
-                    zca_matrix = preprocessing.get_noise_sampled_zca_matrix(seg_voltage,
-                                    thresholds, settings['sigma'],
-                                    zca_cushion, n_samples=1e6)
+                    if settings['verbose']:
+                        print(
+                            "Finding voltage and thresholds for segment",
+                            x+1, "of", len(segment_onsets)
+                            )
+
+                    if settings['verbose']:
+                        print("Doing ZCA transform")
+  
+                    thresholds = single_thresholds(
+                        seg_voltage,
+                        settings['sigma']
+                        )
+
+                    zca_matrix = preprocessing.get_noise_sampled_zca_matrix(
+                        seg_voltage,
+                        thresholds,
+                        settings['sigma'],
+                        zca_cushion,
+                        n_samples=1e6
+                        )
                     # Set seg_voltage to ZCA transformed voltage
                     # @ makes new copy
                     seg_voltage = (zca_matrix @ seg_voltage).astype(Probe.v_dtype)
@@ -1245,7 +1584,11 @@ def spike_sort_parallel(Probe, **kwargs):
                     init_dict['segment_voltages'].append([mp.RawArray(np.ctypeslib.as_ctypes_type(Probe.v_dtype), seg_voltage.size), seg_voltage.shape])
                     np_view = np.frombuffer(init_dict['segment_voltages'][x][0], dtype=Probe.v_dtype).reshape(seg_voltage.shape) # Create numpy view
                     np.copyto(np_view, seg_voltage) # Copy segment voltage to voltage buffer
-                thresholds, seg_over_thresh = single_thresholds_and_samples(seg_voltage, settings['sigma'])
+
+                thresholds, seg_over_thresh = single_thresholds_and_samples(
+                    seg_voltage,
+                    settings['sigma']
+                    )
                 thresholds_list.append(thresholds)
                 samples_over_thresh.extend(seg_over_thresh)
                 if settings['use_memmap']:
@@ -1266,15 +1609,17 @@ def spike_sort_parallel(Probe, **kwargs):
                     if cn_ind is None:
                         raise ValueError("Probe get_neighbors(chan) function must return a neighborhood that includes the channel 'chan'.")
                     chan_neighbor_inds.append(cn_ind)
-                work_items.append({'channel': chan,
-                                   'neighbors': chan_neighbors[chan],
-                                   'chan_neighbor_ind': chan_neighbor_inds[chan],
-                                   'n_samples': segment_offsets[x] - segment_onsets[x],
-                                   'seg_number': x,
-                                   'index_window': [segment_onsets[x], segment_offsets[x]],
-                                   'overlap': settings['segment_overlap'],
-                                   'thresholds': thresholds_list[x],
-                                   })
+                
+                work_items.append({
+                    'channel': chan,
+                    'neighbors': chan_neighbors[chan],
+                    'chan_neighbor_ind': chan_neighbor_inds[chan],
+                    'n_samples': segment_offsets[x] - segment_onsets[x],
+                    'seg_number': x,
+                    'index_window': [segment_onsets[x], segment_offsets[x]],
+                    'overlap': settings['segment_overlap'],
+                    'thresholds': thresholds_list[x],
+                    })
                 # Check potential threshold problems, especially due to artifact removal
                 if np.any(thresholds_list[x] == 0):
                     raise RuntimeError("At least 1 work item channel has a voltage threshold value of zero! Either a segment/channel has no data or has been made to have a median value of zero possibly due to inappropriate artifact detection parameters.")
@@ -1306,27 +1651,32 @@ def spike_sort_parallel(Probe, **kwargs):
         # Sort info is just settings with some extra stuff added for the output
         sort_info = settings
         curr_chan_win, _ = segment_parallel.time_window_to_samples(
-                                        settings['clip_width'], Probe.sampling_rate)
-        sort_info.update({'n_samples': Probe.n_samples,
-                          'n_channels': Probe.num_channels,
-                          'n_samples_per_chan': curr_chan_win[1] - curr_chan_win[0],
-                          'sampling_rate': Probe.sampling_rate,
-                          'n_segments': len(segment_onsets),
-                          'seg_zca_mats': seg_zca_mats,
-                          })
+            settings['clip_width'],
+            Probe.sampling_rate
+            )
+        sort_info.update({
+            'n_samples': Probe.n_samples,
+            'n_channels': Probe.num_channels,
+            'n_samples_per_chan': curr_chan_win[1] - curr_chan_win[0],
+            'sampling_rate': Probe.sampling_rate,
+            'n_segments': len(segment_onsets),
+            'seg_zca_mats': seg_zca_mats,
+            })
         if sort_info['output_separability_metrics']:
             # Initialize elements for separability metrics from each segment
             sort_info['separability_metrics'] = [[] for x in range(0, sort_info['n_segments'])]
 
         if settings['wiener_filter']:
-            wiener_vals = {'do_branch_PCA': False,
-                           'do_branch_PCA_by_chan': False,
-                           'check_components': 20,
-                           'max_components': 5,
-                           'min_firing_rate': 0.1,
-                           'use_rand_init': False,
-                           'sort_peak_clips_only': True,
-                           'sigma': settings['sigma']}
+            wiener_vals = {
+                'do_branch_PCA': False,
+                'do_branch_PCA_by_chan': False,
+                'check_components': 20,
+                'max_components': 5,
+                'min_firing_rate': 0.1,
+                'use_rand_init': False,
+                'sort_peak_clips_only': True,
+                'sigma': settings['sigma']
+                }
             wiener_settings = {}
             for key in settings:
                 if key in wiener_vals.keys():
@@ -1334,7 +1684,14 @@ def spike_sort_parallel(Probe, **kwargs):
                 else:
                     wiener_settings[key] = settings[key]
             if settings['verbose']: print("Start clustering for Wiener filter templates.")
-            process_errors_list_wf = deploy_parallel_sort(manager, cpu_queue, cpu_alloc, work_items, init_dict, wiener_settings)
+            process_errors_list_wf = deploy_parallel_sort(
+                manager,
+                cpu_queue,
+                cpu_alloc,
+                work_items,
+                init_dict,
+                wiener_settings
+                )
 
             # Set threads/processes back to normal for Wiener filter and filter
             # each voltage segment
@@ -1343,18 +1700,29 @@ def spike_sort_parallel(Probe, **kwargs):
             for seg_number in range(0, len(segment_onsets)):
                 if settings['verbose']: print("Start Wiener filter on segment {0}/{1}".format(seg_number+1, len(segment_onsets)))
                 # This will overwrite the segment voltage data!
-                filtered_voltage = wiener_filter_segment(work_items, data_dict, seg_number,
-                                      sort_info, Probe.v_dtype,
-                                      use_memmap=settings['use_memmap'])
+                filtered_voltage = wiener_filter_segment(
+                    work_items,
+                    data_dict,
+                    seg_number,
+                    sort_info,
+                    Probe.v_dtype,
+                    use_memmap=settings['use_memmap']
+                    )
                 # Need to recompute the thresholds for the Wiener filtered data
                 thresholds = single_thresholds(filtered_voltage, settings['sigma'])
                 for wi in work_items:
                     if wi['seg_number'] == seg_number:
                         wi['thresholds'] = thresholds
 
-
         # Re-deploy parallel clustering now using the Wiener filtered voltage
-        process_errors_list = deploy_parallel_sort(manager, cpu_queue, cpu_alloc, work_items, init_dict, settings)
+        process_errors_list = deploy_parallel_sort(
+            manager,
+            cpu_queue,
+            cpu_alloc,
+            work_items,
+            init_dict,
+            settings
+            )
 
         # Set threads/processes back to normal now that we are done
         mkl.set_num_threads(n_threads)
@@ -1362,14 +1730,19 @@ def spike_sort_parallel(Probe, **kwargs):
         # Run binary pursuit for each segment using the discovered templates
         for seg_number in range(0, len(segment_onsets)):
             if settings['verbose']: print("Start full binary pursuit on segment {0}/{1}".format(seg_number+1, len(segment_onsets)))
-            seg_data = full_binary_pursuit.full_binary_pursuit(work_items,
-                        data_dict, seg_number, sort_info, Probe.v_dtype,
-                        overlap_ratio_threshold=2,
-                        absolute_refractory_period=settings['absolute_refractory_period'],
-                        kernels_path=None,
-                        max_gpu_memory=settings['max_gpu_memory'],
-                        use_memmap=settings['use_memmap'],
-                        output_clips=settings['save_clips'])
+            seg_data = full_binary_pursuit.full_binary_pursuit(
+                work_items,
+                data_dict,
+                seg_number,
+                sort_info,
+                Probe.v_dtype,
+                overlap_ratio_threshold=2,
+                absolute_refractory_period=settings['absolute_refractory_period'],
+                kernels_path=None,
+                max_gpu_memory=settings['max_gpu_memory'],
+                use_memmap=settings['use_memmap'],
+                output_clips=settings['save_clips']
+                )
             sort_data.extend(seg_data)
 
         # Re-print any errors so more visible at the end of sorting
