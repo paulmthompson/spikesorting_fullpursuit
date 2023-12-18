@@ -1089,7 +1089,10 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     curr_num_clusters.size, "different clusters", flush=True)
 
         # Delete any clusters under min_cluster_size before binary pursuit
-        if settings['verbose']: print("Current smallest cluster has", np.amin(n_per_cluster), "spikes", flush=True)
+        if settings['verbose']:
+            print("Current smallest cluster has",
+                  np.amin(n_per_cluster), "spikes", flush=True)
+            
         if np.any(n_per_cluster < min_cluster_size):
             for l_ind in range(0, curr_num_clusters.size):
                 if n_per_cluster[l_ind] < min_cluster_size:
@@ -1097,7 +1100,10 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     crossings = crossings[keep_inds]
                     neuron_labels = neuron_labels[keep_inds]
                     # We don't use clips after this point so only update crossings and labels
-                    if settings['verbose']: print("Deleted cluster", curr_num_clusters[l_ind], "with", n_per_cluster[l_ind], "spikes", flush=True)
+                    if settings['verbose']:
+                        print("Deleted cluster", curr_num_clusters[l_ind],
+                              "with", n_per_cluster[l_ind], "spikes",
+                              flush=True)
 
         if neuron_labels.size == 0:
             exit_type = "No clusters over min_firing_rate."
@@ -1130,8 +1136,11 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         #     print_process_info("spike_sort_item_parallel item {0}, channel {1}, segment {2}.".format(work_item['ID'], work_item['channel'], work_item['seg_number']+1))
         #     print_mem_usage("END")
     except NoSpikesError:
-        if settings['verbose']: print("No spikes to sort.")
-        if settings['verbose']: print("Successfully completed item ", str(work_item['ID']), flush=True)
+        if settings['verbose']:
+            print("No spikes to sort.")
+        if settings['verbose']:
+            print("Successfully completed item ",
+                  str(work_item['ID']), flush=True)
         exit_type = "Success"
     except Exception as err:
         exit_type = err

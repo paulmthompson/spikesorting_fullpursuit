@@ -275,10 +275,19 @@ def choose_optimal_cutpoint(cutpoint_ind, residual_densities, x_axis):
     return cutpoint
 
 
-def iso_cut(projection, p_value_cut_thresh):
-    """ This helper function determines the optimal cutpoint given a distribution.
-    First, it tests to determine whether the histogram has a single peak If not,
-    it returns the optimal cut point. """
+def iso_cut(
+        projection: np.ndarray,
+        p_value_cut_thresh: float
+        ):
+    """
+    This helper function determines the optimal cutpoint given a distribution.
+    First, it tests to determine whether the histogram has a single peak
+    If not, it returns the optimal cut point.
+
+    Args:
+        projection (np.ndarray[double]): [description]
+        p_value_cut_thresh (float): [description]
+    """
     N = projection.size
     if N <= 2:
         # Don't try any comparison with only two samples since can't split
@@ -286,7 +295,8 @@ def iso_cut(projection, p_value_cut_thresh):
         return 1., None
 
     num_bins = np.ceil(np.sqrt(N)).astype(np.int64)
-    if num_bins < 2: num_bins = 2
+    if num_bins < 2:
+        num_bins = 2
 
     smooth_pdf, x_axis, _ = sort_cython.kde(projection, num_bins)
     # smooth_pdf, x_axis, _ = kde_builtin(projection, num_bins)
@@ -298,7 +308,7 @@ def iso_cut(projection, p_value_cut_thresh):
     # kde function estimates at power of two spacing levels so compute num_points
     num_points = smooth_pdf.size
     if np.any(np.isnan(smooth_pdf)):
-        return 1., None # (shouldn't happen)
+        return 1., None  # (shouldn't happen)
 
     # Approximate observations per spacing used for computing n for statistics
     smooth_pdf[smooth_pdf < 0] = 0
@@ -329,14 +339,22 @@ def iso_cut(projection, p_value_cut_thresh):
         cutpoint = None
         if p_value < p_value_cut_thresh:
             cutpoint_ind = np.argmax(null_counts - obs_counts)
-            cutpoint = choose_optimal_cutpoint(cutpoint_ind, null_counts - obs_counts, x_axis)
+            cutpoint = choose_optimal_cutpoint(
+                cutpoint_ind,
+                null_counts - obs_counts,
+                x_axis)
             # print("Early EXACT critical cut at p=", p_value,"!")
         return p_value, cutpoint
 
-    sse_left, left_start, left_stop = max_sse_window(obs_counts[0:peak_density_ind+1],
-                             null_counts[0:peak_density_ind+1])
-    sse_right, right_start, right_stop = max_sse_window(obs_counts[peak_density_ind:][-1::-1],
-                               null_counts[peak_density_ind:][-1::-1])
+    sse_left, left_start, left_stop = max_sse_window(
+        obs_counts[0:peak_density_ind+1],
+        null_counts[0:peak_density_ind+1]
+        )
+    sse_right, right_start, right_stop = max_sse_window(
+        obs_counts[peak_density_ind:][-1::-1],
+        null_counts[peak_density_ind:][-1::-1]
+        )
+
     if sse_left > sse_right:
         # max_sse_window returns sliceable indices so don't adjust
         critical_range = np.arange(left_start, left_stop)
@@ -393,9 +411,12 @@ def iso_cut(projection, p_value_cut_thresh):
                 cutpoint_ind = len(critical_range) - cutpoint_ind - 1
             else:
                 cutpoint_ind = np.argmax(residual_densities_fit)
-        cutpoint = choose_optimal_cutpoint(cutpoint_ind, residual_densities_fit,
-                    x_axis[critical_range])
-        
+        cutpoint = choose_optimal_cutpoint(
+            cutpoint_ind,
+            residual_densities_fit,
+            x_axis[critical_range]
+            )
+
     return p_value, cutpoint
 
 
@@ -422,24 +443,64 @@ def merge_clusters(
     the principle components (using these "local" scores rather than the global
     components). This can help separate larger clusters into smaller clusters.
      - merge_only. Only perform merges, do not split.
+
+    Args:
+        data (np.ndarray[double]): [description]
+        labels (np.ndarray[int64]): [description]
     """
 
-    def whiten_cluster_pairs(scores, labels, c1, c2):
+    def whiten_cluster_pairs(
+            scores: np.ndarray,
+            labels: np.ndarray,
+            c1: int,
+            c2: int) -> np.ndarray:
+        """
+
+        Args:
+            scores (np.ndarray[double]): [description]
+            labels (np.ndarray[int64]): [description]
+            c1 (int): [description]
+            c2 (int): [description]
+
+        Returns:
+            np.ndarray[double]
+        """
         centroid_1 = sort_cython.compute_cluster_centroid(scores, labels, c1)
         centroid_2 = sort_cython.compute_cluster_centroid(scores, labels, c2)
         V = centroid_2 - centroid_1
-        avg_cov = np.cov(scores[np.logical_or(labels == c1, labels == c2), :], rowvar=False)
+
+        avg_cov = np.cov(
+            scores[np.logical_or(labels == c1, labels == c2), :],
+            rowvar=False)
+
         if np.abs(la.det(avg_cov)) > 1e-6:
             inv_average_covariance = la.inv(avg_cov)
             V = np.matmul(V, inv_average_covariance)
 
         return V
 
-    def create_matched_cluster(scores, labels, c1, c2):
-        """ Finds the smallest and largest cluster of the labels c1 and c2. Then chooses a matched number of points from
-        the larger cluster that are nearest the smallest cluster centroid. These are assigned a new label (the maximum
-        value of a numpy.int64) so that merge and isocut can be performed on this matched subset of nearest points. Returns
+    def create_matched_cluster(
+            scores: np.ndarray,
+            labels: np.ndarray,
+            c1: int,
+            c2: int) -> np.ndarray:
+        """
+        Finds the smallest and largest cluster of the labels c1 and c2.
+        Then chooses a matched number of points from
+        the larger cluster that are nearest the smallest cluster centroid.
+        These are assigned a new label (the maximum
+        value of a numpy.int64) so that merge and isocut can be performed
+        on this matched subset of nearest points. Returns
         the label of the smallest cluster input and the new cluster.
+
+        Args:
+            scores (np.ndarray[double]): [description]
+            labels (np.ndarray[int64]): [description]
+            c1 (int): [description]
+            c2 (int): [description]
+
+        Returns:
+            np.ndarray[double]
         """
         # Use an output label equal to the maximum integer value, assuming there are not nearly this many labels used in "labels"
         matched_label = np.iinfo(np.int64).max
@@ -449,7 +510,11 @@ def merge_clusters(
         else:
             larger_cluster = c2
             smaller_cluster = c1
-        small_centroid = sort_cython.compute_cluster_centroid(scores, labels, smaller_cluster)
+        small_centroid = sort_cython.compute_cluster_centroid(
+            scores,
+            labels,
+            smaller_cluster)
+
         n_small = np.count_nonzero(labels == smaller_cluster)
         select_large = labels == larger_cluster
         indices_large = np.where(select_large)[0]
@@ -460,16 +525,30 @@ def merge_clusters(
 
         return smaller_cluster, matched_label
 
-    # This helper function determines if we should perform merging of two clusters
-    # This function returns a boolean if we should merge the clusters, and reassigns
-    # labels in-place according to the iso_cut split otherwise
     def merge_test(
-            scores,
-            labels,
-            c1,
-            c2,
+            scores: np.ndarray,
+            labels: np.ndarray,
+            c1: int,
+            c2: int,
             match_cluster=False,
-            check_iso_splits=False):
+            check_iso_splits=False) -> bool:
+        """
+        This helper function determines if we should perform merging of two
+        clusters. This function returns a boolean if we should merge the
+        clusters, and reassigns labels in-place according to the iso_cut
+        split otherwise
+
+        Args:
+            scores (np.ndarray[double]): [description]
+            labels (np.ndarray[int64]): [description]
+            c1 (int): [description]
+            c2 (int): [description]
+            match_cluster:
+            check_iso_splits:
+
+        Returns:
+            bool
+        """
         # Save the labels so we can revert to them at the end if needed
         original_labels = np.copy(labels)
         if match_cluster:
@@ -486,7 +565,9 @@ def merge_clusters(
                 matched_label = c2
                 smaller_cluster = c1
         if scores.shape[1] > 1:
-            # Get V, the vector connecting the two centroids either with or without whitening
+
+            # Get V, the vector connecting the two centroids either
+            # with or without whitening
             if whiten_clusters:
                 V = whiten_cluster_pairs(
                     scores,
@@ -506,20 +587,28 @@ def merge_clusters(
                     matched_label
                     )
                 V = centroid_2 - centroid_1
+
             norm_V = la.norm(V)
             if norm_V == 0:
                 # The two cluster centroids are identical so merge
                 return True
-            V = V / norm_V # Scale by the magnitude to get a unit vector in the appropriate direction
+
+            # Scale by the magnitude to get a unit vector in the
+            # appropriate direction
+            V = V / norm_V
             # Compute the projection of all points from C1 and C2 onto the line
             projection = np.matmul(scores, V)
+
         else:
-            # Can't whiten one and project one dimensional scores, they are already the
-            # 1D projection
+            # Can't whiten one and project one dimensional scores,
+            # they are already the 1D projection
             projection = np.squeeze(np.copy(scores))
-        
-        p_value, optimal_cut = iso_cut(projection[np.logical_or(labels == smaller_cluster, labels == matched_label)], p_value_cut_thresh)
-        # Now that we have done the iso_cut test and found any cutpoints, we don't need matched labels anymore so revert
+
+        p_value, optimal_cut = iso_cut(
+            projection[np.logical_or(labels == smaller_cluster, labels == matched_label)],
+            p_value_cut_thresh)
+        # Now that we have done the iso_cut test and found any cutpoints,
+        # we don't need matched labels anymore so revert
         if smaller_cluster == c1:
             # Larger cluster must have been c2
             labels[labels == matched_label] = c2
@@ -529,14 +618,16 @@ def merge_clusters(
         else:
             # I must have made a horrible mistake
             raise RuntimeError("Lost track of the labels")
-        if p_value >= p_value_cut_thresh: #or np.isnan(p_value):
+        if p_value >= p_value_cut_thresh:  # or np.isnan(p_value):
             # These two clusters should be combined
             if split_only:
                 return False
             else:
                 return True
         elif merge_only:
-            return False # These clusters should be split, but our options say no with merge only.
+            # These clusters should be split, but our options say
+            # no with merge only.
+            return False
         else:
             # Reassign based on the optimal value
             select_greater = np.logical_and(np.logical_or(labels == c1, labels == c2), (projection > optimal_cut + 1e-6))
@@ -577,8 +668,7 @@ def merge_clusters(
             else:
                 # This will force skipping the revert labels below and go straight to reassignment accordng to cut point
                 raw_dist_between_post = 1
-                raw_dist_between_orig = 0
-            
+                raw_dist_between_orig = 0        
 
             if raw_dist_between_post <= raw_dist_between_orig:
                 # If the 10% nearest neighbors are closer after split than before, this might be a bad split so undo
@@ -631,13 +721,16 @@ def merge_clusters(
             previously_compared_pairs
             )
         if len(minimum_distance_pairs) == 0 and none_merged:
-            break # Done, no more clusters to compare
+            break  # Done, no more clusters to compare
         none_merged = True
         for c1, c2 in minimum_distance_pairs:
-            if verbose: print("Comparing ", c1, " with ", c2)
+
+            if verbose:
+                print("Comparing ", c1, " with ", c2)
+
             n_c1 = np.count_nonzero(labels == c1)
             n_c2 = np.count_nonzero(labels == c2)
-            if ( (n_c1 > 1) and (n_c2 > 1) ):
+            if ((n_c1 > 1) and (n_c2 > 1)):
                 # Need more than 1 spike in each matched cluster 
                 merge = merge_test(
                     data,
@@ -647,7 +740,7 @@ def merge_clusters(
                     match_cluster=match_cluster_size,
                     check_iso_splits=check_splits
                     )
-            elif ( (n_c1 > 1) or (n_c2 > 1) ):
+            elif ((n_c1 > 1) or (n_c2 > 1)):
                 merge = merge_test(
                     data,
                     labels,
@@ -666,7 +759,9 @@ def merge_clusters(
                     labels[labels == c2] = c1
                 else:
                     labels[labels == c1] = c2
-                if verbose: print("Iter: ", num_iter, ", Unique clusters: ", np.unique(labels).size)
+                if verbose:
+                    print("Iter: ", num_iter, ", Unique clusters: ",
+                          np.unique(labels).size)
                 none_merged = False
                 # labels changed, so any previous comparison is no longer valid and is removed
                 for ind, pair in reversed(list(enumerate(previously_compared_pairs))):
@@ -674,12 +769,11 @@ def merge_clusters(
                         del previously_compared_pairs[ind]
             else:
                 previously_compared_pairs.append((c1, c2))
-                if verbose: print("split clusters, ", c1, c2)
+                if verbose:
+                    print("split clusters, ", c1, c2)
         num_iter += 1
 
     return labels
-
-
 
 
 def kde_builtin(data, n):
