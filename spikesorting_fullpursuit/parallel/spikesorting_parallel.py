@@ -653,6 +653,10 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             pass
         finally:
             return
+
+    def create_nparray_from_raw_array(raw_array, dtype, shape):
+        return np.frombuffer(raw_array, dtype=dtype).reshape(shape)
+
     try:
         # Print this process' errors and output to a file
         if not settings['test_flag'] and settings['log_dir'] is not None:
@@ -686,9 +690,12 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                      'memmap_fID': settings['memmap_fID']}
         chan = work_item['channel']
 
-        seg_volts_buffer = data_dict['segment_voltages'][work_item['seg_number']][0]
-        seg_volts_shape = data_dict['segment_voltages'][work_item['seg_number']][1]
-        voltage = np.frombuffer(seg_volts_buffer, dtype=item_dict['v_dtype']).reshape(seg_volts_shape)
+        voltage = create_nparray_from_raw_array(
+            data_dict['segment_voltages'][work_item['seg_number']][0],
+            item_dict['v_dtype'],
+            data_dict['segment_voltages'][work_item['seg_number']][1]
+            )
+
         neighbors = work_item['neighbors']
 
         # if settings['verbose']:
@@ -697,7 +704,9 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
 
         skip = np.amax(np.abs(settings['clip_width'])) / 2
         align_window = [skip, skip]
-        if settings['verbose']: print("Identifying threshold crossings", flush=True)
+        if settings['verbose']:
+            print("Identifying threshold crossings", flush=True)
+
         # Note that n_crossings is NOT just len(crossings)! It is the raw number
         # of threshold crossings. Values of crossings obey skip and align window.
         crossings, n_crossings = segment_parallel.identify_threshold_crossings(
@@ -746,7 +755,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             voltage,
             neighbors,
             crossings,
-            clip_width=settings['clip_width'],
+            clip_width_s=settings['clip_width'],
             use_memmap=settings['use_memmap']
             )
         crossings = segment_parallel.keep_valid_inds(
@@ -766,7 +775,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     voltage,
                     neighbors,
                     crossings,
-                    clip_width=settings['clip_width'],
+                    clip_width_s=settings['clip_width'],
                     use_memmap=settings['use_memmap']
                     )
                 crossings = segment_parallel.keep_valid_inds(
@@ -789,7 +798,9 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
 
         exit_type = "Found first clips"
 
-        if settings['verbose']: print("Start initial clustering and merge", flush=True)
+        if settings['verbose']:
+            print("Start initial clustering and merge", flush=True)
+
         # Do initial single channel sort. Start with single channel only because
         # later branching can split things out using multichannel info, but it
         # can't put things back together again
@@ -830,14 +841,14 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     voltage[chan, :],
                     neuron_labels,
                     crossings,
-                    clip_width=settings['clip_width'])
+                    clip_width_s=settings['clip_width'])
 
                 crossings, neuron_labels, _ = segment_parallel.align_templates(
                     item_dict,
                     voltage[chan, :],
                     neuron_labels,
                     crossings,
-                    clip_width=settings['clip_width']
+                    clip_width_s=settings['clip_width']
                     )
                 if isinstance(clips, np.memmap):
                     clips._mmap.close()
@@ -847,11 +858,11 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     voltage,
                     neighbors,
                     crossings,
-                    clip_width=settings['clip_width'],
+                    clip_width_s=settings['clip_width'],
                     use_memmap=settings['use_memmap']
                     )
                 crossings, neuron_labels = segment_parallel.keep_valid_inds(
-                    [crossings, neuron_labels], 
+                    [crossings, neuron_labels],
                     valid_event_indices
                     )
 
@@ -901,7 +912,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     voltage,
                     neighbors,
                     crossings,
-                    clip_width=settings['clip_width'],
+                    clip_width_s=settings['clip_width'],
                     use_memmap=settings['use_memmap'])
                 crossings = segment_parallel.keep_valid_inds([crossings], valid_event_indices)
                 scores = preprocessing.compute_pca(
@@ -942,7 +953,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             voltage[chan, :],
             neuron_labels,
             crossings,
-            clip_width=settings['clip_width'])
+            clip_width_s=settings['clip_width'])
         
         if isinstance(clips, np.memmap):
             clips._mmap.close()
@@ -952,11 +963,11 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             voltage,
             neighbors,
             crossings,
-            clip_width=settings['clip_width'],
+            clip_width_s=settings['clip_width'],
             use_memmap=settings['use_memmap']
             )
         crossings, neuron_labels = segment_parallel.keep_valid_inds(
-            [crossings, neuron_labels], 
+            [crossings, neuron_labels],
             valid_event_indices
             )
 
@@ -980,7 +991,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 voltage,
                 neighbors,
                 crossings,
-                clip_width=settings['clip_width'],
+                clip_width_s=settings['clip_width'],
                 use_memmap=settings['use_memmap']
                 )
         else:
@@ -1023,7 +1034,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     voltage,
                     neighbors,
                     crossings,
-                    clip_width=settings['clip_width'],
+                    clip_width_s=settings['clip_width'],
                     use_memmap=settings['use_memmap']
                     )
             else:
@@ -1095,13 +1106,18 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             voltage[chan, :],
             neuron_labels,
             crossings,
-            clip_width=settings['clip_width']
+            clip_width_s=settings['clip_width']
             )
 
-        if settings['verbose']: print("currently", np.unique(neuron_labels).size, "different clusters", flush=True)
+        if settings['verbose']:
+            print("currently", np.unique(neuron_labels).size, "different clusters", flush=True)
+
         # Map labels starting at zero and put labels in order
         sort.reorder_labels(neuron_labels)
-        if settings['verbose']: print("Successfully completed item ", str(work_item['ID']), flush=True)
+
+        if settings['verbose']:
+            print("Successfully completed item ", str(work_item['ID']), flush=True)
+
         exit_type = "Success"
         # if settings['verbose']:
         #     print_process_info("spike_sort_item_parallel item {0}, channel {1}, segment {2}.".format(work_item['ID'], work_item['channel'], work_item['seg_number']+1))

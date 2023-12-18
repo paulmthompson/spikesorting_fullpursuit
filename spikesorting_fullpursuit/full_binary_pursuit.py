@@ -75,7 +75,7 @@ def get_binary_pursuit_clip_width(
         voltage,
         np.arange(0, voltage.shape[0]),
         all_events,
-        clip_width=bp_clip_width
+        clip_width_s=bp_clip_width
         )
     if np.count_nonzero(valid_event_indices) == 0:
         original_clip_starts = np.arange(
@@ -247,7 +247,7 @@ def full_binary_pursuit(
                 voltage,
                 w_item['neighbors'],
                 data_dict['results_dict'][w_item['ID']][0],
-                clip_width=sort_info['clip_width'])
+                clip_width_s=sort_info['clip_width'])
 
             # Insert list of crossings, labels, clips, binary pursuit spikes
             seg_data.append([
@@ -335,7 +335,7 @@ def full_binary_pursuit(
             voltage,
             all_chan_nbrs,
             n['spike_indices'],
-            clip_width=sort_info['clip_width']
+            clip_width_s=sort_info['clip_width']
             )
         robust_template = calculate_robust_template(clips)
         bp_templates.append(robust_template)
@@ -492,7 +492,7 @@ def full_binary_pursuit(
             voltage,
             all_chan_nbrs,
             crossings,
-            clip_width=sort_info['clip_width'])
+            clip_width_s=sort_info['clip_width'])
 
     if sort_info['output_separability_metrics']:
         # Save the separability metrics as used (and output) by binary_pursuit

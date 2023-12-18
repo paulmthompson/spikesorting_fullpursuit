@@ -178,7 +178,7 @@ def wiener_filter_segment(
                 voltage,
                 w_item['neighbors'],
                 data_dict['results_dict'][w_item['ID']][0],
-                clip_width=sort_info['clip_width'])
+                clip_width_s=sort_info['clip_width'])
 
             # Insert list of crossings, labels, clips, binary pursuit spikes
             seg_data.append([
