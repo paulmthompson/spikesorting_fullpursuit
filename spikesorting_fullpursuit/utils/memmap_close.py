@@ -3,11 +3,13 @@ import numpy as np
 
 
 class MemMapClose(np.memmap):
-    """ Just a sublcass of numpy memmap that closes the memmap file upon
+    """ 
+    Just a sublcass of numpy memmap that closes the memmap file upon
     deletion after flushing data. This stops Windows errors complaining
     about the file being used by another process and inaccessible. However,
     if multiple references exist, further attempts to access the closed
-    memmap file by other objects will CRASH THE SYSTEM! """
+    memmap file by other objects will CRASH THE SYSTEM! 
+    """
     def __new__(subtype, filename, dtype=np.uint8, mode='r+', offset=0,
                 shape=None, order='C'):
         return super().__new__(subtype, filename, dtype=dtype, mode=mode,

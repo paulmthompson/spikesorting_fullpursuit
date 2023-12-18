@@ -399,19 +399,6 @@ def iso_cut(projection, p_value_cut_thresh):
     return p_value, cutpoint
 
 
-"""
-    merge_clusters(data, labels [, ])
-
-This is the workhorse function when performing clustering. It joins individual
-clusters together to form larger clusters until it reaches convergence.  Returns
-the cluster labels for each spike input.
-
-Explanation of parameters:
- - comparison_pca. When we choose two clusters to compare, should we re-compute
-   the principle components (using these "local" scores rather than the global
-   components). This can help separate larger clusters into smaller clusters.
- - merge_only. Only perform merges, do not split.
-"""
 def merge_clusters(
         data,
         labels,
@@ -423,6 +410,19 @@ def merge_clusters(
         match_cluster_size=False,
         check_splits=False,
         verbose=False):
+    """
+    merge_clusters(data, labels [, ])
+
+    This is the workhorse function when performing clustering. It joins individual
+    clusters together to form larger clusters until it reaches convergence.  Returns
+    the cluster labels for each spike input.
+
+    Explanation of parameters:
+    - comparison_pca. When we choose two clusters to compare, should we re-compute
+    the principle components (using these "local" scores rather than the global
+    components). This can help separate larger clusters into smaller clusters.
+     - merge_only. Only perform merges, do not split.
+    """
 
     def whiten_cluster_pairs(scores, labels, c1, c2):
         centroid_1 = sort_cython.compute_cluster_centroid(scores, labels, c1)

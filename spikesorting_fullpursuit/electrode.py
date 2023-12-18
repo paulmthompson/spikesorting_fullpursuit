@@ -71,7 +71,7 @@ class AbstractProbe(object):
             time_samples = slice(0, self.voltage.shape[1], 1)
         self.voltage[channels, time_samples] = new_voltage
 
-    def get_neighbors(channel):
+    def get_neighbors(channel) -> np.ndarray:
         """ Should be defined by any subclass electrode/probe to account for
         their specific geometry. Must return numpy array of integers. """
         if channel > self.num_channels - 1 or channel < 0:

@@ -723,6 +723,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             raise NoSpikesError
         # Save this number for later
         settings['n_threshold_crossings'][chan] = n_crossings
+        
         min_cluster_size = (np.floor(settings['min_firing_rate'] * item_dict['n_samples'] / item_dict['sampling_rate'])).astype(np.int64)
         if min_cluster_size < 1:
             min_cluster_size = 1
@@ -850,6 +851,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     crossings,
                     clip_width_s=settings['clip_width']
                     )
+                
                 if isinstance(clips, np.memmap):
                     clips._mmap.close()
                     del clips
@@ -903,7 +905,9 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                                         settings)
             if any_merged:
                 # Resort based on new clip alignment
-                if settings['verbose']: print("Re-sorting after check spike alignment")
+                if settings['verbose']:
+                    print("Re-sorting after check spike alignment")
+
                 if isinstance(clips, np.memmap):
                     clips._mmap.close()
                     del clips
@@ -915,12 +919,14 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     clip_width_s=settings['clip_width'],
                     use_memmap=settings['use_memmap'])
                 crossings = segment_parallel.keep_valid_inds([crossings], valid_event_indices)
+
                 scores = preprocessing.compute_pca(
                     clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
                     settings['check_components'],
                     settings['max_components'],
                     add_peak_valley=settings['add_peak_valley'],
                     curr_chan_inds=np.arange(0, curr_chan_inds.size))
+
                 n_random = max(100, np.around(crossings.size / 100)) if settings['use_rand_init'] else 0
 
                 neuron_labels = sort.initial_cluster_farthest(
@@ -928,9 +934,9 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     median_cluster_size,
                     n_random=n_random
                     )
-                
+
                 neuron_labels = sort.merge_clusters(
-                    scores, 
+                    scores,
                     neuron_labels,
                     split_only=False,
                     p_value_cut_thresh=settings['p_value_cut_thresh'],
@@ -942,7 +948,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         else:
             neuron_labels = np.zeros(1, dtype=np.int64)
             curr_num_clusters = np.zeros(1, dtype=np.int64)
-        if settings['verbose']: 
+        if settings['verbose']:
             print(
                 "Currently", curr_num_clusters.size,
                 "different clusters", flush=True
@@ -954,7 +960,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             neuron_labels,
             crossings,
             clip_width_s=settings['clip_width'])
-        
+
         if isinstance(clips, np.memmap):
             clips._mmap.close()
             del clips
@@ -971,7 +977,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             valid_event_indices
             )
 
-        # Remove deviant clips before doing branch PCA to avoid getting clusters
+        # Remove deviant clips *before* doing branch PCA to avoid getting clusters
         # of overlaps or garbage
         keep_clips = preprocessing.cleanup_clusters(
             clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
@@ -1023,7 +1029,8 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             # of overlaps or garbage, this time on full neighborhood
             keep_clips = preprocessing.cleanup_clusters(clips, neuron_labels)
             crossings, neuron_labels = segment_parallel.keep_valid_inds(
-                    [crossings, neuron_labels], keep_clips)
+                    [crossings, neuron_labels],
+                    keep_clips)
             if settings['use_memmap']:
                 # Need to recompute clips here because we can't get a memmap view
                 if isinstance(clips, np.memmap):

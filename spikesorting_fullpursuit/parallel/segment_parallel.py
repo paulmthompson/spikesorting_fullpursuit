@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.typing as npt
 from scipy import signal
 import copy
 from os import path
@@ -30,7 +31,7 @@ def identify_threshold_crossings(
         skip=0.,
         align_window=[-5e-4, 5e-4]) -> tuple[np.ndarray, int]:
     """
-    
+
     Args:
         chan_voltage: 2D numpy array of voltage values for segment
             (channels x samples)
@@ -103,7 +104,18 @@ def identify_threshold_crossings(
     return events, n_crossings
 
 
-def keep_valid_inds(keep_data_list, valid_inds):
+def keep_valid_inds(keep_data_list: list, valid_inds):
+    """
+
+    Args:
+        Keep_data_list: List of numpy arrays, such as event indicies or neuron labels
+        valid_inds: 1D numpy array of booleans, which specify which elements of 
+            keep_data_list are valid
+
+    Returns: Either a tuple of numpy arrays or a single numpy array
+        that contains only the valid elements of keep_data_list
+
+    """
 
     out_data = []
     for data in keep_data_list:
@@ -197,13 +209,34 @@ def align_events_with_template(
         chan_voltage,
         neuron_labels,
         event_indices,
-        clip_width_s):
-    """ 
+        clip_width_s) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
     Takes the input data for ONE channel and computes the cross correlation
     of each spike with each template on the channel USING SINGLE CHANNEL CLIPS
     ONLY.  The spike time is then aligned with the peak cross correlation lag.
     This outputs new event indices reflecting this alignment, that can then be
-    used to input into final sorting, as in cluster sharpening. 
+    used to input into final sorting, as in cluster sharpening.
+
+    Args:
+        item_dict = {'sampling_rate',
+                     'n_samples',
+                     'thresholds': 1D numpy array of thresholds for each channel
+                     'v_dtype',
+                     'ID',
+                     'memmap_dir',
+                     'memmap_fID'
+        chan_voltage: 1D numpy array of voltage values for single channel
+        neuron_labels: 1D ndarray of dtype int64
+            Numerical labels indicating the membership of
+            each event_indices (spike clip index) as unique neuron.
+        event_indices: 1D numpy array of indices of threshold crossings
+        clip_width_s: list of two floats, time window in seconds to align
+
+    Returns:
+        event_indices: 1D numpy array of indices of threshold crossings
+        neuron_labels: 1D numpy array of neuron labels
+        valid_inds: 1D numpy array of booleans, which specify
+            which of event indices are valid from input
     """
 
     sampling_rate = probe_dict['sampling_rate']
@@ -247,13 +280,34 @@ def align_events_with_best_template(
         chan_voltage,
         neuron_labels,
         event_indices,
-        clip_width_s):
+        clip_width_s) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Takes the input data for ONE channel and computes the cross correlation
     of each spike with each template on the channel USING SINGLE CHANNEL CLIPS
     ONLY.  The spike time is then aligned with the peak cross correlation lag.
     This outputs new event indices reflecting this alignment, that can then be
-    used to input into final sorting, as in cluster sharpening. 
+    used to input into final sorting, as in cluster sharpening.
+
+    Args:
+        item_dict = {'sampling_rate',
+                     'n_samples',
+                     'thresholds': 1D numpy array of thresholds for each channel
+                     'v_dtype',
+                     'ID',
+                     'memmap_dir',
+                     'memmap_fID'
+        chan_voltage: 1D numpy array of voltage values for single channel
+        neuron_labels: 1D ndarray of dtype int64
+            Numerical labels indicating the membership of
+            each event_indices (spike clip index) as unique neuron.
+        event_indices: 1D numpy array of indices of threshold crossings
+        clip_width_s: list of two floats, time window in seconds to align
+
+    Returns:
+        event_indices: 1D numpy array of indices of threshold crossings
+        neuron_labels: 1D numpy array of neuron labels
+        valid_inds: 1D numpy array of booleans, which specify
+            which of event indices are valid from input
     """
 
     sampling_rate = probe_dict['sampling_rate']
@@ -303,7 +357,7 @@ def align_templates(
         chan_voltage,
         neuron_labels,
         event_indices,
-        clip_width_s):
+        clip_width_s) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """ 
     Aligns templates to each other and shift their event indices accordingly.
 
@@ -311,6 +365,27 @@ def align_templates(
     then asks whether each unit has a template with larger peak
     or valley. All templates are then aligned such that their maximum 
     absolute value is centered on the clip width.
+
+    Args:
+        item_dict = {'sampling_rate',
+                     'n_samples',
+                     'thresholds': 1D numpy array of thresholds for each channel
+                     'v_dtype',
+                     'ID',
+                     'memmap_dir',
+                     'memmap_fID'
+        chan_voltage: 1D numpy array of voltage values for single channel
+        neuron_labels: 1D ndarray of dtype int64
+            Numerical labels indicating the membership of
+            each event_indices (spike clip index) as unique neuron.
+        event_indices: 1D numpy array of indices of threshold crossings
+        clip_width_s: list of two floats, time window in seconds to align
+
+    Returns:
+        event_indices: 1D numpy array of indices of threshold crossings
+        neuron_labels: 1D numpy array of neuron labels
+        valid_inds: 1D numpy array of booleans, which specify
+            which of event indices are valid from input
     """
 
     sampling_rate = probe_dict['sampling_rate']
@@ -349,7 +424,7 @@ def wavelet_align_events(
         event_indices,
         clip_width_s,
         band_width,
-        use_memmap=False):
+        use_memmap=False) -> np.ndarray:
     """ 
     Takes the input data for ONE channel and computes the cross correlation
     of each spike with each template on the channel USING SINGLE CHANNEL CLIPS
@@ -357,7 +432,7 @@ def wavelet_align_events(
     This outputs new event indices reflecting this alignment, that can then be
     used to input into final sorting, as in cluster sharpening.
 
-     Args:
+    Args:
         item_dict = {'sampling_rate',
                      'n_samples',
                      'thresholds': 1D numpy array of thresholds for each channel
@@ -365,12 +440,17 @@ def wavelet_align_events(
                      'ID',
                      'memmap_dir',
                      'memmap_fID'
-        chan_voltage: 2D numpy array of voltage values for segment
-            (channels x samples)
+        chan_voltage: 1D numpy array of voltage values for single channel
         event_indices: 1D numpy array of indices of threshold crossings
         clip_width_s: list of two floats, time window in seconds to align
         band_width: Frequency band of bandpass filter
         use_memmap: bool, whether to use memmap for clips
+
+    Returns:
+        event_indices: 1D numpy array of indices of threshold crossings
+            aligned to peak of wavelet
+            These can be deleted, so the length of event_indicies input
+            may not be the same as output
     """
 
     sampling_rate = probe_dict['sampling_rate']
@@ -524,7 +604,7 @@ def get_singlechannel_clips(
         chan_voltage,
         event_indices,
         clip_width_s,
-        use_memmap=False):
+        use_memmap=False) -> tuple[np.ndarray | MemMapClose, np.ndarray]:
     """
 
     Given a probe and the threshold crossings, return a matrix of clips for a
@@ -538,7 +618,7 @@ def get_singlechannel_clips(
     event_indices that yield a clip width beyond data boundaries are ignored.
     event_indices MUST BE ORDERED or else edge cases will not correctly be
     accounted for and an error may result.
-    'get_cips' below should be preferred as it is more versatile but 
+    'get_clips' below should be preferred as it is more versatile but
     this function is kept for ease and backward compatibility.
 
     Args:
@@ -554,6 +634,15 @@ def get_singlechannel_clips(
         event_indices: 1D numpy array of indices of threshold crossings
         clip_width_s: list of two floats, time window in seconds to align
         use_memmap: bool, whether to use memmap for clips
+
+    Returns:
+        spike_clips: waveforms for each event in 2D array
+            (events x window_samples)
+            This can be either a numpy array or a memmap object
+            The first dimension has length equal to the number of *VALID* indices,
+            which is not necessarily the length of event_indices
+        valid_event_indices: np.ndarray of booleans, which specify
+            which of event indices are valid
     """
 
     sampling_rate = probe_dict['sampling_rate']
@@ -623,11 +712,11 @@ def get_singlechannel_clips(
 def get_clips(
         probe_dict,
         voltage,
-        neighbors,
+        neighbors: np.ndarray,
         event_indices,
-        clip_width_s,
+        clip_width_s: list,
         use_memmap=False,
-        check_valid=True):
+        check_valid=True) -> tuple[np.ndarray | MemMapClose, np.ndarray]:
     """
     This is like get_singlechannel_clips except it concatenates the clips for
     each channel input in the list 'neighbors' in the order that they appear.
@@ -641,13 +730,36 @@ def get_clips(
     edges will not be checked (an indexing error will occur if this assumption
     is incorrect).
 
-    Spike clips are output in the order of the input event indices. 
+    Spike clips are output in the order of the input event indices.
+
+    Args:
+        item_dict = {'sampling_rate',
+                     'n_samples',
+                     'thresholds': 1D numpy array of thresholds for each channel
+                     'v_dtype',
+                     'ID',
+                     'memmap_dir',
+                     'memmap_fID'
+        voltage: 2D numpy array of voltage values for segment
+            (channels x samples)
+        neighbors: np.ndarray of channel indices to use for clips
+        event_indices: 1D numpy array of indices of threshold crossings
+        clip_width_s: list of two floats, time window in seconds to align
+
+    Returns:
+        spike_clips: waveforms for each event in 2D array
+            (events x window_samples)
+            This can be either a numpy array or a memmap object
+            The first dimension has length equal to the number of *VALID* indices,
+            which is not necessarily the length of event_indices
+        valid_event_indices: np.ndarray of booleans, which specify
+            which of event indices are valid
     """
     if event_indices.ndim > 1:
         raise ValueError(
             "Event_indices must be one dimensional array of indices"
             )
-    
+
     sampling_rate = probe_dict['sampling_rate']
 
     window, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
@@ -655,7 +767,7 @@ def get_clips(
         # No indices input
         return np.zeros((0, (window[1] - window[0]) * len(neighbors)), dtype=probe_dict['v_dtype']), np.ones(0, dtype="bool")
     # Ignore spikes whose clips extend beyond the data and create mask for removing them
-    valid_event_indices = np.ones(event_indices.shape[0], dtype="bool")
+    valid_event_indices: np.ndarray = np.ones(event_indices.shape[0], dtype="bool")
     start_ind = 0
     if check_valid:
         n = event_indices[start_ind]
@@ -692,7 +804,7 @@ def get_clips(
                 )
             )
     else:
-        spike_clips = np.empty((np.count_nonzero(valid_event_indices), (window[1] - window[0]) * len(neighbors)), dtype=probe_dict['v_dtype'])
+        spike_clips: np.ndarray = np.empty((np.count_nonzero(valid_event_indices), (window[1] - window[0]) * len(neighbors)), dtype=probe_dict['v_dtype'])
 
     for out_ind, spk in enumerate(range(start_ind, stop_ind+1)): # Add 1 to index through last valid index
         start = 0
