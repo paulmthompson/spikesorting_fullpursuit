@@ -14,6 +14,7 @@ from spikesorting_fullpursuit import sort, preprocessing, full_binary_pursuit
 from spikesorting_fullpursuit.wiener_filter import wiener_filter_segment
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 from spikesorting_fullpursuit.processing import zca
+from spikesorting_fullpursuit.processing import artifact
 
 
 def spike_sorting_settings_parallel(**kwargs):
@@ -1442,7 +1443,7 @@ def spike_sort_parallel(Probe, **kwargs):
         if Probe.num_channels == 1:
             raise ValueError("Cannot do artifact detection on only 1 channel. Check input settings.")
 
-        Probe = preprocessing.remove_artifacts(
+        Probe = artifact.remove_artifacts(
             Probe,
             settings['sigma'],
             settings['artifact_cushion'],
