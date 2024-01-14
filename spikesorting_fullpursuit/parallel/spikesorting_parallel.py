@@ -1,6 +1,7 @@
 import os
 import sys
 
+import spikesorting_fullpursuit.alignment.alignment
 import spikesorting_fullpursuit.processing.conversions
 import spikesorting_fullpursuit.threshold.threshold
 
@@ -748,7 +749,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         exit_type = "Found crossings"
 
         # Realign spikes based on a common wavelet
-        crossings = segment_parallel.wavelet_align_events(
+        crossings = spikesorting_fullpursuit.alignment.alignment.wavelet_align_events(
             item_dict,
             voltage[chan, :],
             crossings,
@@ -843,14 +844,14 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     "different clusters", flush=True)
 
             if settings['sort_peak_clips_only']:
-                crossings, neuron_labels, _ = segment_parallel.align_events_with_template(
+                crossings, neuron_labels, _ = spikesorting_fullpursuit.alignment.alignment.align_events_with_template(
                     item_dict,
                     voltage[chan, :],
                     neuron_labels,
                     crossings,
                     clip_width_s=settings['clip_width'])
 
-                crossings, neuron_labels, _ = segment_parallel.align_templates(
+                crossings, neuron_labels, _ = spikesorting_fullpursuit.alignment.alignment.align_templates(
                     item_dict,
                     voltage[chan, :],
                     neuron_labels,
@@ -960,7 +961,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 "different clusters", flush=True
                 )
 
-        crossings, neuron_labels, _ = segment_parallel.align_events_with_template(
+        crossings, neuron_labels, _ = spikesorting_fullpursuit.alignment.alignment.align_events_with_template(
             item_dict,
             voltage[chan, :],
             neuron_labels,
@@ -1120,7 +1121,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         exit_type = "Finished sorting clusters"
 
         # Realign spikes based on correlation with current cluster templates before doing binary pursuit
-        crossings, neuron_labels, valid_inds = segment_parallel.align_events_with_template(
+        crossings, neuron_labels, valid_inds = spikesorting_fullpursuit.alignment.alignment.align_events_with_template(
             item_dict,
             voltage[chan, :],
             neuron_labels,
