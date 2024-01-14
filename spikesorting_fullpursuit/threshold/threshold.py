@@ -20,6 +20,53 @@ def median_threshold(voltage, sigma):
 
     return thresholds
 
+def single_thresholds(voltage, sigma):
+    """
+
+    Args:
+        voltage (np.ndarray): Voltage array with shape
+        (num_channels, num_samples)
+        sigma (float): Number of standard deviations to use for thresholding
+
+    Returns:
+        thresholds (np.ndarray): Thresholds for each channel (num_channels,)
+    """
+    if voltage.ndim == 1:
+        voltage = np.expand_dims(voltage, 0)
+    num_channels = voltage.shape[0]
+    thresholds = np.empty((num_channels, ))
+    for chan in range(0, num_channels):
+        abs_voltage = np.abs(voltage[chan, :])
+        thresholds[chan] = sigma * np.nanmedian(abs_voltage) / 0.6745
+
+    return thresholds
+
+
+def single_thresholds_and_samples(voltage, sigma):
+    """
+
+    Args:
+        voltage (np.ndarray): Voltage array with shape
+            (num_channels, num_samples)
+        sigma (float): Number of standard deviations to use for thresholding
+
+    Returns:
+        thresholds (np.ndarray): Thresholds for each channel (num_channels,)
+        samples_over_thresh (list): Number of samples over
+            threshold for each channel (num_channels,)
+    """
+    if voltage.ndim == 1:
+        voltage = np.expand_dims(voltage, 0)
+    num_channels = voltage.shape[0]
+    thresholds = np.empty((num_channels, ))
+    samples_over_thresh = []
+    for chan in range(0, num_channels):
+        abs_voltage = np.abs(voltage[chan, :])
+        thresholds[chan] = sigma * np.nanmedian(abs_voltage) / 0.6745
+        samples_over_thresh.append(np.count_nonzero(abs_voltage > thresholds[chan]))
+
+    return thresholds, samples_over_thresh
+
 
 def identify_threshold_crossings(
         chan_voltage,
@@ -100,50 +147,3 @@ def identify_threshold_crossings(
 
     return events, n_crossings
 
-
-def single_thresholds(voltage, sigma):
-    """
-
-    Args:
-        voltage (np.ndarray): Voltage array with shape
-        (num_channels, num_samples)
-        sigma (float): Number of standard deviations to use for thresholding
-
-    Returns:
-        thresholds (np.ndarray): Thresholds for each channel (num_channels,)
-    """
-    if voltage.ndim == 1:
-        voltage = np.expand_dims(voltage, 0)
-    num_channels = voltage.shape[0]
-    thresholds = np.empty((num_channels, ))
-    for chan in range(0, num_channels):
-        abs_voltage = np.abs(voltage[chan, :])
-        thresholds[chan] = sigma * np.nanmedian(abs_voltage) / 0.6745
-
-    return thresholds
-
-
-def single_thresholds_and_samples(voltage, sigma):
-    """
-
-    Args:
-        voltage (np.ndarray): Voltage array with shape
-            (num_channels, num_samples)
-        sigma (float): Number of standard deviations to use for thresholding
-
-    Returns:
-        thresholds (np.ndarray): Thresholds for each channel (num_channels,)
-        samples_over_thresh (list): Number of samples over
-            threshold for each channel (num_channels,)
-    """
-    if voltage.ndim == 1:
-        voltage = np.expand_dims(voltage, 0)
-    num_channels = voltage.shape[0]
-    thresholds = np.empty((num_channels, ))
-    samples_over_thresh = []
-    for chan in range(0, num_channels):
-        abs_voltage = np.abs(voltage[chan, :])
-        thresholds[chan] = sigma * np.nanmedian(abs_voltage) / 0.6745
-        samples_over_thresh.append(np.count_nonzero(abs_voltage > thresholds[chan]))
-
-    return thresholds, samples_over_thresh
