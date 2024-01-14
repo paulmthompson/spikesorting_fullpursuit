@@ -2,6 +2,7 @@ import os
 import sys
 
 import spikesorting_fullpursuit.alignment.alignment
+import spikesorting_fullpursuit.clustering.isocut
 import spikesorting_fullpursuit.processing.conversions
 import spikesorting_fullpursuit.threshold.threshold
 
@@ -516,7 +517,7 @@ def check_spike_alignment(
             add_peak_valley=settings['add_peak_valley'],
             curr_chan_inds=np.arange(0, combined_clips.shape[1])
             )
-        pseudo_labels = sort.merge_clusters(
+        pseudo_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
             scores,
             pseudo_labels,
             split_only=False,
@@ -613,7 +614,7 @@ def branch_pca_2_0(
             median_cluster_size,
             n_random=n_random
             )
-        clust_labels = sort.merge_clusters(
+        clust_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
             scores,
             clust_labels,
             p_value_cut_thresh=p_value_cut_thresh,
@@ -828,7 +829,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 median_cluster_size,
                 n_random=n_random
                 )
-            neuron_labels = sort.merge_clusters(
+            neuron_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
                 scores,
                 neuron_labels,
                 split_only=False,
@@ -889,7 +890,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     median_cluster_size,
                     n_random=n_random)
 
-                neuron_labels = sort.merge_clusters(
+                neuron_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
                     scores,
                     neuron_labels,
                     split_only=False,
@@ -942,7 +943,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     n_random=n_random
                     )
 
-                neuron_labels = sort.merge_clusters(
+                neuron_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
                     scores,
                     neuron_labels,
                     split_only=False,

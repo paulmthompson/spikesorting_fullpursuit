@@ -1,5 +1,5 @@
 import numpy as np
-from spikesorting_fullpursuit.sort import merge_clusters
+from spikesorting_fullpursuit.clustering.isocut import merge_clusters
 from spikesorting_fullpursuit import preprocessing
 from spikesorting_fullpursuit import analyze_spike_timing
 from spikesorting_fullpursuit.parallel.segment_parallel import get_clips
