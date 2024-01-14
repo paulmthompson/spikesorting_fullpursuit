@@ -430,7 +430,8 @@ def merge_clusters(
         max_iter=20000,
         match_cluster_size=False,
         check_splits=False,
-        verbose=False):
+        verbose=False
+        ) -> np.ndarray:
     """
     merge_clusters(data, labels [, ])
 
@@ -445,8 +446,11 @@ def merge_clusters(
      - merge_only. Only perform merges, do not split.
 
     Args:
-        data (np.ndarray[double]): [description]
-        labels (np.ndarray[int64]): [description]
+        data (np.ndarray[double]): These are typically scores from dimensionality
+            reduction, (samples x dimensions)
+        labels (np.ndarray[int64]): Label for each sample (samples)
+    Returns:
+        labels (np.ndarray[int64]): Labels for each sample
     """
 
     def whiten_cluster_pairs(

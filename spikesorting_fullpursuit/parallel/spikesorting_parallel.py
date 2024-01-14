@@ -13,6 +13,7 @@ from spikesorting_fullpursuit.parallel import segment_parallel
 from spikesorting_fullpursuit import sort, preprocessing, full_binary_pursuit
 from spikesorting_fullpursuit.wiener_filter import wiener_filter_segment
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
+from spikesorting_fullpursuit.processing import zca
 
 
 def spike_sorting_settings_parallel(**kwargs):
@@ -272,7 +273,7 @@ def parallel_zca_and_threshold(seg_num, sigma, zca_cushion, n_samples):
 
     # Plug numpy view into required functions
     thresholds = single_thresholds(seg_voltage, sigma)
-    zca_matrix = preprocessing.get_noise_sampled_zca_matrix(
+    zca_matrix = zca.get_noise_sampled_zca_matrix(
         seg_voltage,
         thresholds,
         sigma,
@@ -325,7 +326,7 @@ def parallel_zca_and_threshold_mmap(
     seg_voltage = segment_parallel.memmap_to_mem(seg_voltage_mmap)
     # Plug numpy memmap view into required functions
     thresholds = single_thresholds(seg_voltage, sigma)
-    zca_matrix = preprocessing.get_noise_sampled_zca_matrix(
+    zca_matrix = zca.get_noise_sampled_zca_matrix(
         seg_voltage,
         thresholds,
         sigma,
@@ -1595,7 +1596,7 @@ def spike_sort_parallel(Probe, **kwargs):
                         settings['sigma']
                         )
 
-                    zca_matrix = preprocessing.get_noise_sampled_zca_matrix(
+                    zca_matrix = zca.get_noise_sampled_zca_matrix(
                         seg_voltage,
                         thresholds,
                         settings['sigma'],
