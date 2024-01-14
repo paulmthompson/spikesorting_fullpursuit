@@ -6,6 +6,7 @@ import spikesorting_fullpursuit.clustering.cluster_utils
 import spikesorting_fullpursuit.clustering.isocut
 import spikesorting_fullpursuit.clustering.kmeanspp
 import spikesorting_fullpursuit.dim_reduce.pca
+import spikesorting_fullpursuit.processing.clip_utils
 import spikesorting_fullpursuit.processing.conversions
 import spikesorting_fullpursuit.threshold.threshold
 
@@ -466,7 +467,7 @@ def check_spike_alignment(
     the spike waveform is nearly symmetric in peak/valley. This is all done
     in memmory without memmaping because selection and copies is complex.
     """
-    templates, labels = segment_parallel.calculate_templates(
+    templates, labels = spikesorting_fullpursuit.processing.clip_utils.calculate_templates(
         clips[:, curr_chan_inds[0]:curr_chan_inds[1]+1],
         neuron_labels
         )
@@ -743,7 +744,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 "Using minimum cluster size of",
                 min_cluster_size, flush=True)
 
-        _, _, clip_samples, _, curr_chan_inds = segment_parallel.get_windows_and_indices(
+        _, _, clip_samples, _, curr_chan_inds = spikesorting_fullpursuit.processing.clip_utils.get_windows_and_indices(
             settings['clip_width'],
             item_dict['sampling_rate'],
             chan,
@@ -762,7 +763,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             use_memmap=settings['use_memmap']
             )
 
-        clips, valid_event_indices = segment_parallel.get_clips(
+        clips, valid_event_indices = spikesorting_fullpursuit.processing.clip_utils.get_clips(
             item_dict,
             voltage,
             neighbors,
@@ -782,7 +783,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 if isinstance(clips, np.memmap):
                     clips._mmap.close()
                     del clips
-                clips, valid_event_indices = segment_parallel.get_clips(
+                clips, valid_event_indices = spikesorting_fullpursuit.processing.clip_utils.get_clips(
                     item_dict,
                     voltage,
                     neighbors,
@@ -866,7 +867,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 if isinstance(clips, np.memmap):
                     clips._mmap.close()
                     del clips
-                clips, valid_event_indices = segment_parallel.get_clips(
+                clips, valid_event_indices = spikesorting_fullpursuit.processing.clip_utils.get_clips(
                     item_dict,
                     voltage,
                     neighbors,
@@ -922,7 +923,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 if isinstance(clips, np.memmap):
                     clips._mmap.close()
                     del clips
-                clips, valid_event_indices = segment_parallel.get_clips(
+                clips, valid_event_indices = spikesorting_fullpursuit.processing.clip_utils.get_clips(
                     item_dict,
                     voltage,
                     neighbors,
@@ -975,7 +976,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         if isinstance(clips, np.memmap):
             clips._mmap.close()
             del clips
-        clips, valid_event_indices = segment_parallel.get_clips(
+        clips, valid_event_indices = spikesorting_fullpursuit.processing.clip_utils.get_clips(
             item_dict,
             voltage,
             neighbors,
@@ -1003,7 +1004,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             if isinstance(clips, np.memmap):
                 clips._mmap.close()
                 del clips
-            clips, valid_event_indices = segment_parallel.get_clips(
+            clips, valid_event_indices = spikesorting_fullpursuit.processing.clip_utils.get_clips(
                 item_dict,
                 voltage,
                 neighbors,
@@ -1047,7 +1048,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 if isinstance(clips, np.memmap):
                     clips._mmap.close()
                     del clips
-                clips, valid_event_indices = segment_parallel.get_clips(
+                clips, valid_event_indices = spikesorting_fullpursuit.processing.clip_utils.get_clips(
                     item_dict,
                     voltage,
                     neighbors,

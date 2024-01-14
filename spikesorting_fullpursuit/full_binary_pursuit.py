@@ -3,8 +3,8 @@ from copy import copy, deepcopy
 from scipy.stats import norm
 from spikesorting_fullpursuit import neuron_separability
 from spikesorting_fullpursuit.consolidate import SegSummary
-from spikesorting_fullpursuit.processing.clip_utils import calculate_robust_template
-from spikesorting_fullpursuit.parallel.segment_parallel import get_clips, memmap_to_mem
+from spikesorting_fullpursuit.processing.clip_utils import calculate_robust_template, get_clips
+from spikesorting_fullpursuit.parallel.segment_parallel import memmap_to_mem
 from spikesorting_fullpursuit.processing.conversions import time_window_to_samples
 from spikesorting_fullpursuit.parallel import binary_pursuit_parallel
 from spikesorting_fullpursuit.c_cython import sort_cython

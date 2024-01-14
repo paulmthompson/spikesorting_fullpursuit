@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import signal
 
-from spikesorting_fullpursuit.parallel.segment_parallel import get_singlechannel_clips, calculate_templates
+from spikesorting_fullpursuit.processing.clip_utils import calculate_templates, get_singlechannel_clips
 from spikesorting_fullpursuit.processing.conversions import time_window_to_samples
 
 
