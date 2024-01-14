@@ -1,6 +1,9 @@
 import numpy as np
 from numpy import linalg as la
 
+import spikesorting_fullpursuit.clustering
+import spikesorting_fullpursuit.dim_reduce
+
 from spikesorting_fullpursuit.c_cython import sort_cython
 
 
@@ -489,3 +492,76 @@ def compute_template_pca_by_channel(
     clips = clips.astype(clip_dtype)
 
     return np.hstack(pcs_by_chan)
+
+
+def branch_pca_2_0(
+        neuron_labels,
+        clips,
+        curr_chan_inds,
+        p_value_cut_thresh=0.01,
+        add_peak_valley=False,
+        check_components=None,
+        max_components=None,
+        use_rand_init=True,
+        method='pca',
+        match_cluster_size=False,
+        check_splits=False):
+    """
+    """
+    neuron_labels_copy = np.copy(neuron_labels)
+    clusters_to_check = [ol for ol in np.unique(neuron_labels_copy)]
+    next_label = int(np.amax(clusters_to_check) + 1)
+    while len(clusters_to_check) > 0:
+        curr_clust = clusters_to_check.pop()
+        curr_clust_bool = neuron_labels_copy == curr_clust
+        clust_clips = clips[curr_clust_bool, :]
+        if clust_clips.ndim == 1:
+            clust_clips = np.expand_dims(clust_clips, 0)
+        if clust_clips.shape[0] <= 1:
+            # Only one spike so don't try to sort
+            continue
+        median_cluster_size = min(100, int(np.around(clust_clips.shape[0] / 1000)))
+
+        # Re-cluster and sort using only clips from current cluster
+        if method.lower() == 'pca':
+            scores = spikesorting_fullpursuit.dim_reduce.pca.compute_pca(
+                clust_clips,
+                check_components,
+                max_components,
+                add_peak_valley=add_peak_valley,
+                curr_chan_inds=curr_chan_inds
+                )
+        elif method.lower() == 'chan_pca':
+            scores = spikesorting_fullpursuit.dim_reduce.pca.compute_pca_by_channel(
+                clust_clips,
+                curr_chan_inds,
+                check_components,
+                max_components,
+                add_peak_valley=add_peak_valley
+                )
+        else:
+            raise ValueError("Branch method must be either 'pca', or 'chan_pca'.")
+        n_random = max(100, np.around(clust_clips.shape[0] / 100)) if use_rand_init else 0
+        clust_labels = spikesorting_fullpursuit.clustering.kmeanspp.initial_cluster_farthest(
+            scores,
+            median_cluster_size,
+            n_random=n_random
+            )
+        clust_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
+            scores,
+            clust_labels,
+            p_value_cut_thresh=p_value_cut_thresh,
+            match_cluster_size=match_cluster_size,
+            check_splits=check_splits,
+            )
+        new_labels = np.unique(clust_labels)
+        if new_labels.size > 1:
+            # Found at least one new cluster within original so reassign labels
+            for nl in new_labels:
+                temp_labels = neuron_labels_copy[curr_clust_bool]
+                temp_labels[clust_labels == nl] = next_label
+                neuron_labels_copy[curr_clust_bool] = temp_labels
+                clusters_to_check.append(next_label)
+                next_label += 1
+
+    return neuron_labels_copy
