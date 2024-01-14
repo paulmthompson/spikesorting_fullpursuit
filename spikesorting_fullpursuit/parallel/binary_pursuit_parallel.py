@@ -5,7 +5,7 @@ import re
 import time
 
 import spikesorting_fullpursuit.processing.conversions
-from spikesorting_fullpursuit.sort import reorder_labels
+from spikesorting_fullpursuit.clustering.cluster_utils import reorder_labels
 from spikesorting_fullpursuit import neuron_separability
 from spikesorting_fullpursuit.parallel import segment_parallel
 

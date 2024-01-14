@@ -2,6 +2,7 @@ import os
 import sys
 
 import spikesorting_fullpursuit.alignment.alignment
+import spikesorting_fullpursuit.clustering.cluster_utils
 import spikesorting_fullpursuit.clustering.isocut
 import spikesorting_fullpursuit.clustering.kmeanspp
 import spikesorting_fullpursuit.processing.conversions
@@ -17,7 +18,7 @@ import psutil
 import time
 from traceback import print_tb
 from spikesorting_fullpursuit.parallel import segment_parallel
-from spikesorting_fullpursuit import sort, preprocessing, full_binary_pursuit
+from spikesorting_fullpursuit import preprocessing, full_binary_pursuit
 from spikesorting_fullpursuit.wiener_filter import wiener_filter_segment
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 from spikesorting_fullpursuit.processing import zca
@@ -1135,7 +1136,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             print("currently", np.unique(neuron_labels).size, "different clusters", flush=True)
 
         # Map labels starting at zero and put labels in order
-        sort.reorder_labels(neuron_labels)
+        spikesorting_fullpursuit.clustering.cluster_utils.reorder_labels(neuron_labels)
 
         if settings['verbose']:
             print("Successfully completed item ", str(work_item['ID']), flush=True)
