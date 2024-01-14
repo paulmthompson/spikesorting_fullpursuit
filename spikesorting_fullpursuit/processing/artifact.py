@@ -1,6 +1,6 @@
 import numpy as np
 
-from spikesorting_fullpursuit.parallel.segment_parallel import median_threshold
+from spikesorting_fullpursuit.threshold.threshold import median_threshold
 
 
 def remove_artifacts(Probe, sigma, artifact_cushion, artifact_tol, n_artifact_chans):

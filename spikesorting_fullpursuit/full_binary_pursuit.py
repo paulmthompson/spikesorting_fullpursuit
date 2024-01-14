@@ -4,7 +4,8 @@ from scipy.stats import norm
 from spikesorting_fullpursuit import neuron_separability
 from spikesorting_fullpursuit.consolidate import SegSummary
 from spikesorting_fullpursuit.preprocessing import calculate_robust_template
-from spikesorting_fullpursuit.parallel.segment_parallel import get_clips, time_window_to_samples, memmap_to_mem
+from spikesorting_fullpursuit.parallel.segment_parallel import get_clips, memmap_to_mem
+from spikesorting_fullpursuit.processing.conversions import time_window_to_samples
 from spikesorting_fullpursuit.parallel import binary_pursuit_parallel
 from spikesorting_fullpursuit.c_cython import sort_cython
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose

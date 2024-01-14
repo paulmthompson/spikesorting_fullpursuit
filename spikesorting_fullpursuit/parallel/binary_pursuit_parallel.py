@@ -3,6 +3,8 @@ import os
 import platform as sys_platform
 import re
 import time
+
+import spikesorting_fullpursuit.processing.conversions
 from spikesorting_fullpursuit.sort import reorder_labels
 from spikesorting_fullpursuit import neuron_separability
 from spikesorting_fullpursuit.parallel import segment_parallel
@@ -193,7 +195,7 @@ def binary_pursuit(
     n_chans = np.uint32(voltage.shape[0])
     n_samples = voltage.shape[1]
     sampling_rate = sort_info['sampling_rate']
-    chan_win, _ = segment_parallel.time_window_to_samples(sort_info['clip_width'], sampling_rate)
+    chan_win, _ = spikesorting_fullpursuit.processing.conversions.time_window_to_samples(sort_info['clip_width'], sampling_rate)
     template_samples_per_chan = sort_info['n_samples_per_chan']
 
     templates = separability_metrics['templates']

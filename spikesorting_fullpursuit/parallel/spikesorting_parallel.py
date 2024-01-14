@@ -1,5 +1,9 @@
 import os
 import sys
+
+import spikesorting_fullpursuit.processing.conversions
+import spikesorting_fullpursuit.threshold.threshold
+
 sys.path.append(os.getcwd())
 
 from shutil import rmtree
@@ -711,7 +715,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
 
         # Note that n_crossings is NOT just len(crossings)! It is the raw number
         # of threshold crossings. Values of crossings obey skip and align window.
-        crossings, n_crossings = segment_parallel.identify_threshold_crossings(
+        crossings, n_crossings = spikesorting_fullpursuit.threshold.threshold.identify_threshold_crossings(
             voltage[chan, :],
             item_dict,
             item_dict['thresholds'][chan],
@@ -1460,7 +1464,7 @@ def spike_sort_parallel(Probe, **kwargs):
         if settings['segment_overlap'] is None:
             # If segment is specified with no overlap, use minimal overlap that
             # will not miss spikes on the edges
-            clip_samples = segment_parallel.time_window_to_samples(
+            clip_samples = spikesorting_fullpursuit.processing.conversions.time_window_to_samples(
                 settings['clip_width'],
                 Probe.sampling_rate
                 )[0]
@@ -1468,7 +1472,7 @@ def spike_sort_parallel(Probe, **kwargs):
         elif settings['segment_overlap'] <= 0:
             # If segment is specified with no overlap, use minimal overlap that
             # will not miss spikes on the edges
-            clip_samples = segment_parallel.time_window_to_samples(settings['clip_width'], Probe.sampling_rate)[0]
+            clip_samples = spikesorting_fullpursuit.processing.conversions.time_window_to_samples(settings['clip_width'], Probe.sampling_rate)[0]
             settings['segment_overlap'] = int(3 * (clip_samples[1] - clip_samples[0]))
         else:
             settings['segment_overlap'] = int(np.ceil(settings['segment_overlap'] * Probe.sampling_rate))
@@ -1684,7 +1688,7 @@ def spike_sort_parallel(Probe, **kwargs):
 
         # Sort info is just settings with some extra stuff added for the output
         sort_info = settings
-        curr_chan_win, _ = segment_parallel.time_window_to_samples(
+        curr_chan_win, _ = spikesorting_fullpursuit.processing.conversions.time_window_to_samples(
             settings['clip_width'],
             Probe.sampling_rate
             )

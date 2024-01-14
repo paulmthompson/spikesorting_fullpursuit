@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import linalg as la
 from scipy import signal, linalg
-from spikesorting_fullpursuit.parallel.segment_parallel import median_threshold
+from spikesorting_fullpursuit.threshold.threshold import median_threshold
 from spikesorting_fullpursuit.c_cython import sort_cython
 
 
