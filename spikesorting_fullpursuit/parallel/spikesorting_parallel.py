@@ -3,6 +3,7 @@ import sys
 
 import spikesorting_fullpursuit.alignment.alignment
 import spikesorting_fullpursuit.clustering.isocut
+import spikesorting_fullpursuit.clustering.kmeanspp
 import spikesorting_fullpursuit.processing.conversions
 import spikesorting_fullpursuit.threshold.threshold
 
@@ -609,7 +610,7 @@ def branch_pca_2_0(
         else:
             raise ValueError("Branch method must be either 'pca', or 'chan_pca'.")
         n_random = max(100, np.around(clust_clips.shape[0] / 100)) if use_rand_init else 0
-        clust_labels = sort.initial_cluster_farthest(
+        clust_labels = spikesorting_fullpursuit.clustering.kmeanspp.initial_cluster_farthest(
             scores,
             median_cluster_size,
             n_random=n_random
@@ -824,7 +825,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                 curr_chan_inds=np.arange(0, curr_chan_inds.size)
                 )
             n_random = max(100, np.around(crossings.size / 100)) if settings['use_rand_init'] else 0
-            neuron_labels = sort.initial_cluster_farthest(
+            neuron_labels = spikesorting_fullpursuit.clustering.kmeanspp.initial_cluster_farthest(
                 scores,
                 median_cluster_size,
                 n_random=n_random
@@ -885,7 +886,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     )
                 n_random = max(100, np.around(crossings.size / 100)) if settings['use_rand_init'] else 0
 
-                neuron_labels = sort.initial_cluster_farthest(
+                neuron_labels = spikesorting_fullpursuit.clustering.kmeanspp.initial_cluster_farthest(
                     scores,
                     median_cluster_size,
                     n_random=n_random)
@@ -937,7 +938,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
 
                 n_random = max(100, np.around(crossings.size / 100)) if settings['use_rand_init'] else 0
 
-                neuron_labels = sort.initial_cluster_farthest(
+                neuron_labels = spikesorting_fullpursuit.clustering.kmeanspp.initial_cluster_farthest(
                     scores,
                     median_cluster_size,
                     n_random=n_random
