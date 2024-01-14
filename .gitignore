@@ -136,4 +136,15 @@ dmypy.json
 .pytype/
 
 #Cython C files
-c_cython/sort_cython.c
+spikesorting_fullpursuit/c_cython/sort_cython.c
+
+test/sorted_demo_std_logs
+test/test_ground_truth.pickle
+test/test_voltage.npy
+
+demos/sorted_demo_std_logs
+demos/sorted_demo.pickle
+demos/test_ground_truth.pickle
+demos/test_voltage.npy
+
+.idea
