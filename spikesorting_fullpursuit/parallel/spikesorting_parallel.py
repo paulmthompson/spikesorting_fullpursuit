@@ -5,6 +5,7 @@ import spikesorting_fullpursuit.alignment.alignment
 import spikesorting_fullpursuit.clustering.cluster_utils
 import spikesorting_fullpursuit.clustering.isocut
 import spikesorting_fullpursuit.clustering.kmeanspp
+import spikesorting_fullpursuit.dim_reduce.pca
 import spikesorting_fullpursuit.processing.conversions
 import spikesorting_fullpursuit.threshold.threshold
 
@@ -512,7 +513,7 @@ def check_spike_alignment(
         combined_clips = np.vstack((clips_1, clips_2))
         pseudo_labels = np.ones(combined_clips.shape[0], dtype=np.int64)
         pseudo_labels[clips_1.shape[0]:] = 2
-        scores = preprocessing.compute_pca(
+        scores = spikesorting_fullpursuit.dim_reduce.pca.compute_pca(
             combined_clips,
             settings['check_components'],
             settings['max_components'],
@@ -593,7 +594,7 @@ def branch_pca_2_0(
 
         # Re-cluster and sort using only clips from current cluster
         if method.lower() == 'pca':
-            scores = preprocessing.compute_pca(
+            scores = spikesorting_fullpursuit.dim_reduce.pca.compute_pca(
                 clust_clips,
                 check_components,
                 max_components,
@@ -601,7 +602,7 @@ def branch_pca_2_0(
                 curr_chan_inds=curr_chan_inds
                 )
         elif method.lower() == 'chan_pca':
-            scores = preprocessing.compute_pca_by_channel(
+            scores = spikesorting_fullpursuit.dim_reduce.pca.compute_pca_by_channel(
                 clust_clips,
                 curr_chan_inds,
                 check_components,
@@ -818,7 +819,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         median_cluster_size = min(100, int(np.around(crossings.size / 1000)))
         if crossings.size > 1:
             # MUST SLICE curr_chan_inds to get a view instead of copy
-            scores = preprocessing.compute_pca(
+            scores = spikesorting_fullpursuit.dim_reduce.pca.compute_pca(
                 clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
                 settings['check_components'],
                 settings['max_components'],
@@ -878,7 +879,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     valid_event_indices
                     )
 
-                scores = preprocessing.compute_pca(
+                scores = spikesorting_fullpursuit.dim_reduce.pca.compute_pca(
                     clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
                     settings['check_components'],
                     settings['max_components'],
@@ -930,7 +931,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
                     use_memmap=settings['use_memmap'])
                 crossings = segment_parallel.keep_valid_inds([crossings], valid_event_indices)
 
-                scores = preprocessing.compute_pca(
+                scores = spikesorting_fullpursuit.dim_reduce.pca.compute_pca(
                     clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
                     settings['check_components'],
                     settings['max_components'],

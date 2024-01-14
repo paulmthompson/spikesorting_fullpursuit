@@ -1,4 +1,6 @@
 import numpy as np
+
+import spikesorting_fullpursuit.dim_reduce.pca
 from spikesorting_fullpursuit.clustering.isocut import merge_clusters
 from spikesorting_fullpursuit import preprocessing
 from spikesorting_fullpursuit import analyze_spike_timing
@@ -651,23 +653,23 @@ class WorkItemSummary(object):
         neuron_labels = np.ones(clips.shape[0], dtype=np.int64)
         neuron_labels[clips_1.shape[0]:] = 2
         if method.lower() == 'pca':
-            scores = preprocessing.compute_pca(clips,
-                        self.sort_info['check_components'],
-                        self.sort_info['max_components'],
-                        add_peak_valley=self.sort_info['add_peak_valley'],
-                        curr_chan_inds=curr_chan_inds)
+            scores = spikesorting_fullpursuit.dim_reduce.pca.compute_pca(clips,
+                                                                         self.sort_info['check_components'],
+                                                                         self.sort_info['max_components'],
+                                                                         add_peak_valley=self.sort_info['add_peak_valley'],
+                                                                         curr_chan_inds=curr_chan_inds)
         elif method.lower() == 'template_pca':
-            scores = preprocessing.compute_template_pca(clips, neuron_labels,
-                        curr_chan_inds, self.sort_info['check_components'],
-                        self.sort_info['max_components'],
-                        add_peak_valley=self.sort_info['add_peak_valley'],
-                        use_weights=use_weights)
+            scores = spikesorting_fullpursuit.dim_reduce.pca.compute_template_pca(clips, neuron_labels,
+                                                                                  curr_chan_inds, self.sort_info['check_components'],
+                                                                                  self.sort_info['max_components'],
+                                                                                  add_peak_valley=self.sort_info['add_peak_valley'],
+                                                                                  use_weights=use_weights)
         elif method.lower() == 'channel_template_pca':
-            scores = preprocessing.compute_template_pca_by_channel(clips, neuron_labels,
-                        curr_chan_inds, self.sort_info['check_components'],
-                        self.sort_info['max_components'],
-                        add_peak_valley=self.sort_info['add_peak_valley'],
-                        use_weights=use_weights)
+            scores = spikesorting_fullpursuit.dim_reduce.pca.compute_template_pca_by_channel(clips, neuron_labels,
+                                                                                             curr_chan_inds, self.sort_info['check_components'],
+                                                                                             self.sort_info['max_components'],
+                                                                                             add_peak_valley=self.sort_info['add_peak_valley'],
+                                                                                             use_weights=use_weights)
         elif method.lower() == 'projection':
             # Projection onto templates, weighted by number of spikes
             t1 = np.mean(clips_1, axis=0)
