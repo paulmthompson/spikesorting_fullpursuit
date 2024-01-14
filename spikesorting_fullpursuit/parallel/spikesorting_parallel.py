@@ -19,7 +19,7 @@ import time
 from traceback import print_tb
 from spikesorting_fullpursuit.parallel import segment_parallel
 from spikesorting_fullpursuit import preprocessing, full_binary_pursuit
-from spikesorting_fullpursuit.wiener_filter import wiener_filter_segment
+from spikesorting_fullpursuit.processing.wiener_filter import wiener_filter_segment
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 from spikesorting_fullpursuit.processing import zca
 from spikesorting_fullpursuit.processing import artifact
