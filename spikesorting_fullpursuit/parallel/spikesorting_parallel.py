@@ -19,10 +19,10 @@ import psutil
 import time
 from traceback import print_tb
 from spikesorting_fullpursuit.parallel import segment_parallel
-from spikesorting_fullpursuit import preprocessing, full_binary_pursuit
+from spikesorting_fullpursuit import full_binary_pursuit
 from spikesorting_fullpursuit.processing.wiener_filter import wiener_filter_segment
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
-from spikesorting_fullpursuit.processing import zca
+from spikesorting_fullpursuit.processing import zca, clip_utils
 from spikesorting_fullpursuit.processing import artifact
 
 
@@ -775,7 +775,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
             valid_event_indices
             )
         if settings['sort_peak_clips_only']:
-            keep_clips = preprocessing.keep_max_on_main(clips, curr_chan_inds)
+            keep_clips = clip_utils.keep_max_on_main(clips, curr_chan_inds)
             crossings = crossings[keep_clips]
             if settings['use_memmap']:
                 # Need to recompute clips here because we can't get a memmap view
@@ -990,7 +990,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
 
         # Remove deviant clips *before* doing branch PCA to avoid getting clusters
         # of overlaps or garbage
-        keep_clips = preprocessing.cleanup_clusters(
+        keep_clips = clip_utils.cleanup_clusters(
             clips[:, curr_chan_inds[0]:curr_chan_inds[-1]+1],
             neuron_labels
             )
@@ -1038,7 +1038,7 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
         if settings['do_branch_PCA']:
             # Remove deviant clips before doing branch PCA to avoid getting clusters
             # of overlaps or garbage, this time on full neighborhood
-            keep_clips = preprocessing.cleanup_clusters(clips, neuron_labels)
+            keep_clips = clip_utils.cleanup_clusters(clips, neuron_labels)
             crossings, neuron_labels = segment_parallel.keep_valid_inds(
                     [crossings, neuron_labels],
                     keep_clips)

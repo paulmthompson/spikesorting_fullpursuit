@@ -6,7 +6,7 @@ import spikesorting_fullpursuit.clustering.isotonic
 import spikesorting_fullpursuit.clustering.multinomial_gof
 import spikesorting_fullpursuit.neuron_separability
 import spikesorting_fullpursuit.postprocessing
-import spikesorting_fullpursuit.preprocessing
+import spikesorting_fullpursuit.processing.clip_utils
 import spikesorting_fullpursuit.processing.wiener_filter
 
 

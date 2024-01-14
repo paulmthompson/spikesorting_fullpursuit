@@ -3,7 +3,6 @@ from scipy.stats import norm
 
 import spikesorting_fullpursuit.dim_reduce.pca
 from spikesorting_fullpursuit.clustering.isocut import merge_clusters
-from spikesorting_fullpursuit import preprocessing
 from spikesorting_fullpursuit.analyze_spike_timing import remove_spike_event_duplicates
 
 
