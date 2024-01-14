@@ -2,9 +2,8 @@ import numpy as np
 from numpy import linalg as la
 from scipy.fftpack import dct, fft, ifft
 from sklearn.neighbors import BallTree
-from spikesorting_fullpursuit.clustering import isotonic
+from spikesorting_fullpursuit.clustering import isotonic, multinomial_gof
 from spikesorting_fullpursuit.c_cython import sort_cython
-from spikesorting_fullpursuit import multinomial_gof
 
 
 def initial_cluster_farthest(
