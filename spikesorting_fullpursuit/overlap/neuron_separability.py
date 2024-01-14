@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.stats import norm
-from spikesorting_fullpursuit.consolidate import optimal_align_templates
+from spikesorting_fullpursuit.overlap.consolidate import optimal_align_templates
 
 
 

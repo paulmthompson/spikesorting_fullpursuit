@@ -2,12 +2,9 @@ import numpy as np
 import os
 import platform as sys_platform
 import re
-import time
 
 import spikesorting_fullpursuit.processing.conversions
-from spikesorting_fullpursuit.clustering.cluster_utils import reorder_labels
-from spikesorting_fullpursuit import neuron_separability
-from spikesorting_fullpursuit.parallel import segment_parallel
+from spikesorting_fullpursuit.overlap import neuron_separability
 
 
 def get_zero_phase_kernel(x, x_center):

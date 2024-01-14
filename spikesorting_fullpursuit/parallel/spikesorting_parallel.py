@@ -9,6 +9,7 @@ import spikesorting_fullpursuit.dim_reduce.pca
 import spikesorting_fullpursuit.processing.clip_utils
 import spikesorting_fullpursuit.processing.conversions
 import spikesorting_fullpursuit.threshold.threshold
+from spikesorting_fullpursuit.threshold.threshold import single_thresholds, single_thresholds_and_samples
 
 sys.path.append(os.getcwd())
 
@@ -20,7 +21,7 @@ import psutil
 import time
 from traceback import print_tb
 from spikesorting_fullpursuit.parallel import segment_parallel
-from spikesorting_fullpursuit import full_binary_pursuit
+from spikesorting_fullpursuit.overlap import full_binary_pursuit
 from spikesorting_fullpursuit.processing.wiener_filter import wiener_filter_segment
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 from spikesorting_fullpursuit.processing import zca, clip_utils
@@ -179,54 +180,6 @@ def print_mem_usage(num=None):
     return process.memory_info().rss
 
 ########################################################
-
-
-def single_thresholds(voltage, sigma):
-    """
-    
-    Args:
-        voltage (np.ndarray): Voltage array with shape 
-        (num_channels, num_samples)
-        sigma (float): Number of standard deviations to use for thresholding
-
-    Returns:
-        thresholds (np.ndarray): Thresholds for each channel (num_channels,)
-    """
-    if voltage.ndim == 1:
-        voltage = np.expand_dims(voltage, 0)
-    num_channels = voltage.shape[0]
-    thresholds = np.empty((num_channels, ))
-    for chan in range(0, num_channels):
-        abs_voltage = np.abs(voltage[chan, :])
-        thresholds[chan] = sigma * np.nanmedian(abs_voltage) / 0.6745
-
-    return thresholds
-
-
-def single_thresholds_and_samples(voltage, sigma):
-    """
-    
-    Args:
-        voltage (np.ndarray): Voltage array with shape
-            (num_channels, num_samples)
-        sigma (float): Number of standard deviations to use for thresholding
-
-    Returns:
-        thresholds (np.ndarray): Thresholds for each channel (num_channels,)
-        samples_over_thresh (list): Number of samples over
-            threshold for each channel (num_channels,)
-    """
-    if voltage.ndim == 1:
-        voltage = np.expand_dims(voltage, 0)
-    num_channels = voltage.shape[0]
-    thresholds = np.empty((num_channels, ))
-    samples_over_thresh = []
-    for chan in range(0, num_channels):
-        abs_voltage = np.abs(voltage[chan, :])
-        thresholds[chan] = sigma * np.nanmedian(abs_voltage) / 0.6745
-        samples_over_thresh.append(np.count_nonzero(abs_voltage > thresholds[chan]))
-
-    return thresholds, samples_over_thresh
 
 
 def init_zca_voltage(

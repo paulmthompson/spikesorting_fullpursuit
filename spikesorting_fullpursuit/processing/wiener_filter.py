@@ -2,7 +2,7 @@ import numpy as np
 from copy import deepcopy
 from spikesorting_fullpursuit.parallel.segment_parallel import memmap_to_mem
 from spikesorting_fullpursuit.processing.conversions import time_window_to_samples
-from spikesorting_fullpursuit.consolidate import SegSummary
+from spikesorting_fullpursuit.overlap.consolidate import SegSummary
 from spikesorting_fullpursuit.processing.clip_utils import calculate_robust_template, get_singlechannel_clips, get_clips
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 

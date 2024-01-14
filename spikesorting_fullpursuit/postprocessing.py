@@ -4,7 +4,7 @@ import spikesorting_fullpursuit.dim_reduce.pca
 from spikesorting_fullpursuit.clustering.isocut import merge_clusters
 from spikesorting_fullpursuit import analyze_spike_timing
 from spikesorting_fullpursuit.processing.clip_utils import get_clips
-from spikesorting_fullpursuit import neuron_separability
+from spikesorting_fullpursuit.overlap import neuron_separability
 
 import warnings
 
