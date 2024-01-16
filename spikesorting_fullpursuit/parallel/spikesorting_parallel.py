@@ -20,6 +20,7 @@ sys.path.append(os.getcwd())
 from shutil import rmtree
 import mkl
 import numpy as np
+from isosplit6 import isosplit6
 import multiprocessing as mp
 import psutil
 import time
@@ -528,6 +529,9 @@ def check_spike_alignment(
             add_peak_valley=settings["add_peak_valley"],
             curr_chan_inds=np.arange(0, combined_clips.shape[1]),
         )
+        # pseudo_labels = isosplit6(scores)
+        #pseudo_labels = isosplit6(scores, initial_labels=pseudo_labels)
+
         pseudo_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
             scores,
             pseudo_labels,
@@ -537,6 +541,7 @@ def check_spike_alignment(
             match_cluster_size=settings["match_cluster_size"],
             check_splits=settings["check_splits"],
         )
+
         if np.all(pseudo_labels == 1) or np.all(pseudo_labels == 2):
             any_merged = True
             if clips_1.shape[0] >= clips_2.shape[0]:
@@ -1081,6 +1086,9 @@ def initial_channel_sort(
                 scores, median_cluster_size, n_random=n_random
             )
         )
+        neuron_labels = isosplit6(scores)
+        # neuron_labels = isosplit6(scores, initial_labels=neuron_labels)
+        """
         neuron_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
             scores,
             neuron_labels,
@@ -1089,6 +1097,7 @@ def initial_channel_sort(
             match_cluster_size=settings["match_cluster_size"],
             check_splits=settings["check_splits"],
         )
+        """
 
         if settings["verbose"]:
             curr_num_clusters, n_per_cluster = np.unique(
@@ -1162,7 +1171,9 @@ def initial_channel_sort(
                     scores, median_cluster_size, n_random=n_random
                 )
             )
-
+            neuron_labels = isosplit6(scores)
+            # neuron_labels = isosplit6(scores, initial_labels=neuron_labels)
+            """
             neuron_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
                 scores,
                 neuron_labels,
@@ -1171,6 +1182,7 @@ def initial_channel_sort(
                 match_cluster_size=settings["match_cluster_size"],
                 check_splits=settings["check_splits"],
             )
+            """
 
             if settings["verbose"]:
                 curr_num_clusters, n_per_cluster = np.unique(
@@ -1228,6 +1240,11 @@ def initial_channel_sort(
                     scores, median_cluster_size, n_random=n_random
                 )
             )
+            """
+            Using isosplit6 here results in overclustering on testing. Not clear what the difference is
+            """
+            #neuron_labels = isosplit6(scores)
+            #neuron_labels = isosplit6(scores, initial_labels=neuron_labels)
 
             neuron_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
                 scores,
@@ -1237,6 +1254,7 @@ def initial_channel_sort(
                 match_cluster_size=settings["match_cluster_size"],
                 check_splits=settings["check_splits"],
             )
+
 
     else:
         neuron_labels = np.zeros(1, dtype=np.int64)

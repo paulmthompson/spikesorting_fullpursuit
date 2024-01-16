@@ -117,9 +117,6 @@ def test_spike_sort_parallel():
         ]
         print(fmtL.format(*print_vals))
 
-    assert neurons[0]["spike_indices"].size == 2926
-    assert neurons[1]["spike_indices"].size == 2769
-
     # Match the ground truth units to the sorted neurons with the most true positives
     test_match_to_neurons = {}
     for test_num in range(0, len(ground_truth)):
@@ -144,6 +141,9 @@ def test_spike_sort_parallel():
             "to sorted neuron",
             test_match_to_neurons[test_num],
         )
+
+    assert neurons[test_match_to_neurons[0]]["spike_indices"].size == 2769
+    assert neurons[test_match_to_neurons[1]]["spike_indices"].size == 2926
 
     # Print true positive and false discoveries for best matching to ground truth neuron 1
     ground_truth_unit = 0
