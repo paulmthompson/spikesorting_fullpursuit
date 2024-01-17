@@ -4,8 +4,9 @@ from spikesorting_fullpursuit.clustering.kmeanspp import initial_cluster_farthes
 from spikesorting_fullpursuit.clustering.isocut import merge_clusters
 import matplotlib.pyplot as plt
 
+import pytest
 
-def cluster_easy(scores):
+def cluster_default(scores):
     p_value_cut_thresh = 0.01
 
     median_cluster_size = 100
@@ -22,19 +23,34 @@ def cluster_easy(scores):
 
     return neuron_labels
 
-
-def test_cluster_easy():
+@pytest.fixture(scope="module")
+def easy_scores():
     scores, ground_truth_labels = generate_test_cluster_easy()
+    yield scores
 
-    neuron_labels = cluster_easy(scores)
+@pytest.fixture(scope="module")
+def easy_ground_truth():
+    scores, ground_truth_labels = generate_test_cluster_easy()
+    yield ground_truth_labels
 
-    assert neuron_labels.size == ground_truth_labels.size
+@pytest.fixture()
+def cluster_labels(easy_scores):
+    neuron_labels = cluster_default(easy_scores)
+    yield neuron_labels
 
-    label_ids = np.unique(neuron_labels)
 
-    assert len(label_ids) == len(np.unique(ground_truth_labels))
+def test_cluster_size(cluster_labels, easy_ground_truth):
 
+    assert cluster_labels.size == easy_ground_truth.size
+
+
+def test_cluster_num_easy(cluster_labels, easy_ground_truth):
+    label_ids = np.unique(cluster_labels)
+
+    assert len(label_ids) == len(np.unique(easy_ground_truth))
+    """
     for g in label_ids:
         ix = np.where(neuron_labels == g)
         plt.scatter(scores[ix,0], scores[ix,1])
     plt.show()
+    """
