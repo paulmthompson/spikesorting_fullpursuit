@@ -7,12 +7,12 @@ from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 
 
 def minimal_redundancy_template_order(
-        spikes,
-        templates,
-        max_templates=None,
-        first_template_ind=None):
-    """
-    """
+    spikes,
+    templates,
+    max_templates=None,
+    first_template_ind=None,
+):
+    """ """
     if max_templates is None:
         max_templates = templates.shape[0]
 
@@ -21,7 +21,7 @@ def minimal_redundancy_template_order(
     temps_remaining = [int(x) for x in range(0, templates_copy.shape[1])]
 
     first_template_ind = first_template_ind / np.sum(first_template_ind)
-    template_sizes = np.sum(templates_copy ** 2, axis=0) * first_template_ind
+    template_sizes = np.sum(templates_copy**2, axis=0) * first_template_ind
 
     # if first_template_ind is None:
     #     first_template_ind = np.argmax(template_sizes)
@@ -41,7 +41,9 @@ def minimal_redundancy_template_order(
         for t_ind, t in enumerate(temps_remaining):
             # dot_products[t_ind] = np.abs(template_sizes[t] - np.median(templates_copy[:, t] @ test_templates))
             # dot_products[t_ind] = np.amin(np.abs(template_sizes[t] - templates_copy[:, t] @ test_templates))
-            dot_products[t_ind] = np.sum(templates_copy[:, t] @ test_templates) / template_sizes[t]
+            dot_products[t_ind] = (
+                np.sum(templates_copy[:, t] @ test_templates) / template_sizes[t]
+            )
         # next_best_temp = temps_remaining[np.argmax(dot_products)]
         # total_function.append((dot_products[np.argmax(dot_products)]))
         next_best_temp = temps_remaining[np.argmin(dot_products)]
@@ -55,7 +57,7 @@ def minimal_redundancy_template_order(
     vaf = np.zeros_like(total_function)
     total_function[0] = np.inf
     for df in range(1, total_function.size):
-        this_vaf = total_function[df] / total_function[df-1]
+        this_vaf = total_function[df] / total_function[df - 1]
         vaf[df] = this_vaf
         # if vaf[df] < vaf[df-1]:
         #     break
@@ -71,15 +73,17 @@ def minimal_redundancy_template_order(
 
 
 def compute_template_projection(
-        clips,
-        labels,
-        curr_chan_inds,
-        add_peak_valley=False,
-        max_templates=None):
-    """
-    """
+    clips,
+    labels,
+    curr_chan_inds,
+    add_peak_valley=False,
+    max_templates=None,
+):
+    """ """
     if add_peak_valley and curr_chan_inds is None:
-        raise ValueError("Must supply indices for the main channel if using peak valley")
+        raise ValueError(
+            "Must supply indices for the main channel if using peak valley"
+        )
     # Compute the weights using projection onto each neurons' template
     unique_labels, u_counts = np.unique(labels, return_counts=True)
     if max_templates is None:
@@ -88,28 +92,27 @@ def compute_template_projection(
     for ind, l in enumerate(unique_labels):
         templates[ind, :] = np.mean(clips[labels == l, :], axis=0)
     templates = minimal_redundancy_template_order(
-        clips,
-        templates,
-        max_templates=max_templates,
-        first_template_ind=u_counts
-        )
+        clips, templates, max_templates=max_templates, first_template_ind=u_counts
+    )
     # Keep at most the max_templates templates
-    templates = templates[0:min(templates.shape[0], max_templates), :]
+    templates = templates[0 : min(templates.shape[0], max_templates), :]
     scores = clips @ templates.T
 
     if add_peak_valley:
-        peak_valley = (np.amax(clips[:, curr_chan_inds], axis=1)
-                       - np.amin(clips[:, curr_chan_inds], axis=1)
-                       ).reshape(clips.shape[0], -1)
+        peak_valley = (
+            np.amax(clips[:, curr_chan_inds], axis=1)
+            - np.amin(clips[:, curr_chan_inds], axis=1)
+        ).reshape(clips.shape[0], -1)
         peak_valley /= np.amax(np.abs(peak_valley))  # Normalized from -1 to 1
-        peak_valley *= np.amax(np.amax(np.abs(scores)))  # Normalized to same range as PC scores
+        peak_valley *= np.amax(
+            np.amax(np.abs(scores))
+        )  # Normalized to same range as PC scores
         scores = np.hstack((scores, peak_valley))
 
     return scores
 
 
 def keep_max_on_main(clips, main_chan_inds):
-
     keep_clips = np.ones(clips.shape[0], dtype="bool")
     for c in range(0, clips.shape[0]):
         max_ind = np.argmax(np.abs(clips[c, :]))
@@ -120,14 +123,15 @@ def keep_max_on_main(clips, main_chan_inds):
 
 
 def cleanup_clusters(clips, neuron_labels):
-
     keep_clips = np.ones(clips.shape[0], dtype="bool")
 
-    total_SSE_clips = np.sum(clips ** 2, axis=1)
+    total_SSE_clips = np.sum(clips**2, axis=1)
     total_mean_SSE_clips = np.mean(total_SSE_clips)
     total_STD_clips = np.std(total_SSE_clips)
-    overall_deviant = np.logical_or(total_SSE_clips > total_mean_SSE_clips + 5*total_STD_clips,
-                        total_SSE_clips < total_mean_SSE_clips - 5*total_STD_clips)
+    overall_deviant = np.logical_or(
+        total_SSE_clips > total_mean_SSE_clips + 5 * total_STD_clips,
+        total_SSE_clips < total_mean_SSE_clips - 5 * total_STD_clips,
+    )
     keep_clips[overall_deviant] = False
 
     for nl in np.unique(neuron_labels):
@@ -141,26 +145,31 @@ def cleanup_clusters(clips, neuron_labels):
             if not select_nl[nl_ind]:
                 continue
             curr_SSE = np.sum((clips[nl_ind, :] - nl_template) ** 2)
-            if np.logical_or(curr_SSE > nl_mean_SSE_clips + 2*nl_STD_clips,
-                             curr_SSE < nl_mean_SSE_clips - 2*nl_STD_clips):
+            if np.logical_or(
+                curr_SSE > nl_mean_SSE_clips + 2 * nl_STD_clips,
+                curr_SSE < nl_mean_SSE_clips - 2 * nl_STD_clips,
+            ):
                 keep_clips[nl_ind] = False
 
     return keep_clips
 
 
 def calculate_robust_template(clips):
-
     if clips.shape[0] == 1 or clips.ndim == 1:
         # Only 1 clip so nothing to average over
-        return np.squeeze(clips) # Return 1D array
-    robust_template = np.zeros((clips.shape[1], ), dtype=clips.dtype)
+        return np.squeeze(clips)  # Return 1D array
+    robust_template = np.zeros((clips.shape[1],), dtype=clips.dtype)
     sample_medians = np.median(clips, axis=0)
     for sample in range(0, clips.shape[1]):
         # Compute MAD with standard deviation conversion factor
-        sample_MAD = np.median(np.abs(clips[:, sample] - sample_medians[sample])) / 0.6745
+        sample_MAD = (
+            np.median(np.abs(clips[:, sample] - sample_medians[sample])) / 0.6745
+        )
         # Samples within 1 MAD
-        select_1MAD = np.logical_and(clips[:, sample] > sample_medians[sample] - sample_MAD,
-                                     clips[:, sample] < sample_medians[sample] + sample_MAD)
+        select_1MAD = np.logical_and(
+            clips[:, sample] > sample_medians[sample] - sample_MAD,
+            clips[:, sample] < sample_medians[sample] + sample_MAD,
+        )
         if ~np.any(select_1MAD):
             # Nothing within 1 MAD STD so just fall back on median
             robust_template[sample] = sample_medians[sample]
@@ -180,7 +189,9 @@ def keep_cluster_centroid(clips, neuron_labels, n_keep=100):
         select_nl = neuron_labels == nl
         nl_template = np.mean(clips[select_nl, :], axis=0)
         nl_distances = np.sum((clips[select_nl, :] - nl_template[None, :]) ** 2, axis=1)
-        dist_order = np.argpartition(nl_distances, min(n_keep, nl_distances.shape[0]-1))[0:min(n_keep, nl_distances.shape[0])]
+        dist_order = np.argpartition(
+            nl_distances, min(n_keep, nl_distances.shape[0] - 1)
+        )[0 : min(n_keep, nl_distances.shape[0])]
         select_dist = np.zeros(nl_distances.shape[0], dtype="bool")
         select_dist[dist_order] = True
         keep_clips[select_nl] = select_dist
@@ -207,11 +218,12 @@ def calculate_templates(clips, neuron_labels):
 
 
 def get_singlechannel_clips(
-        probe_dict,
-        chan_voltage,
-        event_indices,
-        clip_width_s,
-        use_memmap=False) -> tuple[np.ndarray | MemMapClose, np.ndarray]:
+    probe_dict,
+    chan_voltage,
+    event_indices,
+    clip_width_s,
+    use_memmap=False,
+) -> tuple[np.ndarray | MemMapClose, np.ndarray]:
     """
 
     Given a probe and the threshold crossings, return a matrix of clips for a
@@ -252,7 +264,7 @@ def get_singlechannel_clips(
             which of event indices are valid
     """
 
-    sampling_rate = probe_dict['sampling_rate']
+    sampling_rate = probe_dict["sampling_rate"]
 
     window, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
     # Ignore spikes whose clips extend beyond the data and create mask for removing them
@@ -271,7 +283,7 @@ def get_singlechannel_clips(
 
     stop_ind = event_indices.shape[0] - 1
     n = event_indices[stop_ind]
-    while n + window[1] > probe_dict['n_samples']:
+    while n + window[1] > probe_dict["n_samples"]:
         valid_event_indices[stop_ind] = False
         stop_ind -= 1
         if stop_ind < 0:
@@ -281,21 +293,28 @@ def get_singlechannel_clips(
         n = event_indices[stop_ind]
 
     if use_memmap:
-        clip_fname = path.join(probe_dict['memmap_dir'], "{0}clips_{1}.bin".format(probe_dict['memmap_fID'], str(probe_dict['ID'])))
+        clip_fname = path.join(
+            probe_dict["memmap_dir"],
+            "{0}clips_{1}.bin".format(probe_dict["memmap_fID"], str(probe_dict["ID"])),
+        )
         spike_clips = MemMapClose(
             clip_fname,
-            dtype=probe_dict['v_dtype'],
-            mode='w+',
-            shape=(np.count_nonzero(valid_event_indices),
-                   window[1] - window[0])
-            )
+            dtype=probe_dict["v_dtype"],
+            mode="w+",
+            shape=(np.count_nonzero(valid_event_indices), window[1] - window[0]),
+        )
     else:
         spike_clips = np.empty(
             (np.count_nonzero(valid_event_indices), window[1] - window[0]),
-            dtype=probe_dict['v_dtype'])
+            dtype=probe_dict["v_dtype"],
+        )
 
-    for out_ind, spk in enumerate(range(start_ind, stop_ind+1)): # Add 1 to index through last valid index
-        spike_clips[out_ind, :] = chan_voltage[event_indices[spk]+window[0]:event_indices[spk]+window[1]]
+    for out_ind, spk in enumerate(
+        range(start_ind, stop_ind + 1)
+    ):  # Add 1 to index through last valid index
+        spike_clips[out_ind, :] = chan_voltage[
+            event_indices[spk] + window[0] : event_indices[spk] + window[1]
+        ]
 
     if use_memmap:
         if isinstance(spike_clips, np.memmap):
@@ -305,25 +324,23 @@ def get_singlechannel_clips(
         # Make output read only
         spike_clips = MemMapClose(
             clip_fname,
-            dtype=probe_dict['v_dtype'],
-            mode='r',
-            shape=(
-                np.count_nonzero(valid_event_indices),
-                window[1] - window[0]
-                )
-            )
+            dtype=probe_dict["v_dtype"],
+            mode="r",
+            shape=(np.count_nonzero(valid_event_indices), window[1] - window[0]),
+        )
 
     return spike_clips, valid_event_indices
 
 
 def get_clips(
-        probe_dict,
-        voltage,
-        neighbors: np.ndarray,
-        event_indices,
-        clip_width_s: list,
-        use_memmap=False,
-        check_valid=True) -> tuple[np.ndarray | MemMapClose, np.ndarray]:
+    probe_dict,
+    voltage,
+    neighbors: np.ndarray,
+    event_indices,
+    clip_width_s: list,
+    use_memmap=False,
+    check_valid=True,
+) -> tuple[np.ndarray | MemMapClose, np.ndarray]:
     """
     This is like get_singlechannel_clips except it concatenates the clips for
     each channel input in the list 'neighbors' in the order that they appear.
@@ -363,16 +380,16 @@ def get_clips(
             which of event indices are valid
     """
     if event_indices.ndim > 1:
-        raise ValueError(
-            "Event_indices must be one dimensional array of indices"
-            )
+        raise ValueError("Event_indices must be one dimensional array of indices")
 
-    sampling_rate = probe_dict['sampling_rate']
+    sampling_rate = probe_dict["sampling_rate"]
 
     window, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
     if len(event_indices) == 0:
         # No indices input
-        return np.zeros((0, (window[1] - window[0]) * len(neighbors)), dtype=probe_dict['v_dtype']), np.ones(0, dtype="bool")
+        return np.zeros(
+            (0, (window[1] - window[0]) * len(neighbors)), dtype=probe_dict["v_dtype"]
+        ), np.ones(0, dtype="bool")
     # Ignore spikes whose clips extend beyond the data and create mask for removing them
     valid_event_indices: np.ndarray = np.ones(event_indices.shape[0], dtype="bool")
     start_ind = 0
@@ -388,7 +405,7 @@ def get_clips(
             n = event_indices[start_ind]
         stop_ind = event_indices.shape[0] - 1
         n = event_indices[stop_ind]
-        while (n + window[1]) >= probe_dict['n_samples']:
+        while (n + window[1]) >= probe_dict["n_samples"]:
             valid_event_indices[stop_ind] = False
             stop_ind -= 1
             if stop_ind < 0:
@@ -400,24 +417,37 @@ def get_clips(
         stop_ind = len(event_indices) - 1
 
     if use_memmap:
-        clip_fname = path.join(probe_dict['memmap_dir'], "{0}clips_{1}.bin".format(probe_dict['memmap_fID'], str(probe_dict['ID'])))
+        clip_fname = path.join(
+            probe_dict["memmap_dir"],
+            "{0}clips_{1}.bin".format(probe_dict["memmap_fID"], str(probe_dict["ID"])),
+        )
         spike_clips = MemMapClose(
             clip_fname,
-            dtype=probe_dict['v_dtype'],
-            mode='w+',
+            dtype=probe_dict["v_dtype"],
+            mode="w+",
             shape=(
                 np.count_nonzero(valid_event_indices),
-                (window[1] - window[0]) * len(neighbors)
-                )
-            )
+                (window[1] - window[0]) * len(neighbors),
+            ),
+        )
     else:
-        spike_clips: np.ndarray = np.empty((np.count_nonzero(valid_event_indices), (window[1] - window[0]) * len(neighbors)), dtype=probe_dict['v_dtype'])
+        spike_clips: np.ndarray = np.empty(
+            (
+                np.count_nonzero(valid_event_indices),
+                (window[1] - window[0]) * len(neighbors),
+            ),
+            dtype=probe_dict["v_dtype"],
+        )
 
-    for out_ind, spk in enumerate(range(start_ind, stop_ind+1)): # Add 1 to index through last valid index
+    for out_ind, spk in enumerate(
+        range(start_ind, stop_ind + 1)
+    ):  # Add 1 to index through last valid index
         start = 0
         for n_ind, chan in enumerate(neighbors):
             stop = (n_ind + 1) * (window[1] - window[0])
-            spike_clips[out_ind, start:stop] = voltage[chan, event_indices[spk]+window[0]:event_indices[spk]+window[1]]
+            spike_clips[out_ind, start:stop] = voltage[
+                chan, event_indices[spk] + window[0] : event_indices[spk] + window[1]
+            ]
             start = stop
 
     if use_memmap:
@@ -428,34 +458,43 @@ def get_clips(
         # Make output read only
         spike_clips = MemMapClose(
             clip_fname,
-            dtype=probe_dict['v_dtype'],
-            mode='r',
+            dtype=probe_dict["v_dtype"],
+            mode="r",
             shape=(
                 np.count_nonzero(valid_event_indices),
-                (window[1] - window[0]) * len(neighbors)
-                )
-            )
+                (window[1] - window[0]) * len(neighbors),
+            ),
+        )
 
     return spike_clips, valid_event_indices
 
 
 def get_windows_and_indices(
-        clip_width_s,
-        sampling_rate,
-        channel,
-        neighbors):
+    clip_width_s,
+    sampling_rate,
+    channel,
+    neighbors,
+):
     """
     Computes some basic info used in many functions about how clips are
     are formatted and provides window indices and clip indices.
     """
 
     curr_chan_win, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
-    chan_neighbor_ind = next((idx[0] for idx, val in np.ndenumerate(neighbors) if val == channel), None)
+    chan_neighbor_ind = next(
+        (idx[0] for idx, val in np.ndenumerate(neighbors) if val == channel), None
+    )
     samples_per_chan = curr_chan_win[1] - curr_chan_win[0]
     curr_chan_inds = np.arange(
         samples_per_chan * chan_neighbor_ind,
         samples_per_chan * chan_neighbor_ind + samples_per_chan,
-        1
-        )
+        1,
+    )
 
-    return clip_width_s, chan_neighbor_ind, curr_chan_win, samples_per_chan, curr_chan_inds
+    return (
+        clip_width_s,
+        chan_neighbor_ind,
+        curr_chan_win,
+        samples_per_chan,
+        curr_chan_inds,
+    )

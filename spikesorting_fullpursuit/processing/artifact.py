@@ -3,7 +3,13 @@ import numpy as np
 from spikesorting_fullpursuit.threshold.threshold import median_threshold
 
 
-def remove_artifacts(Probe, sigma, artifact_cushion, artifact_tol, n_artifact_chans):
+def remove_artifacts(
+    Probe,
+    sigma,
+    artifact_cushion,
+    artifact_tol,
+    n_artifact_chans,
+):
     """
     Zero voltage for threshold crossings within artifact_tol samples that
     cross threshold on >= artifact_chans number of chans. Zero'ing goes from
