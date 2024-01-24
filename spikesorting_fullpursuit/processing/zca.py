@@ -30,7 +30,11 @@ def get_full_zca_matrix(data, rowvar=True):
 
 
 def get_noise_sampled_zca_matrix(
-    voltage_data, thresholds, sigma, thresh_cushion, n_samples=1e6
+    voltage_data,
+    thresholds,
+    sigma,
+    thresh_cushion,
+    n_samples=1e6,
 ):
     """
     The ZCA procedure was taken (and reformatted into 2 lines) from:
