@@ -12,13 +12,14 @@ def median_threshold(voltage, sigma):
     if voltage.ndim == 1:
         voltage = np.expand_dims(voltage, 0)
     num_channels = voltage.shape[0]
-    thresholds = np.empty((num_channels, ))
+    thresholds = np.empty((num_channels,))
     for chan in range(0, num_channels):
         abs_voltage = np.abs(voltage[chan, :])
         thresholds[chan] = np.nanmedian(abs_voltage) / 0.6745
     thresholds *= sigma
 
     return thresholds
+
 
 def single_thresholds(voltage, sigma):
     """
@@ -34,7 +35,7 @@ def single_thresholds(voltage, sigma):
     if voltage.ndim == 1:
         voltage = np.expand_dims(voltage, 0)
     num_channels = voltage.shape[0]
-    thresholds = np.empty((num_channels, ))
+    thresholds = np.empty((num_channels,))
     for chan in range(0, num_channels):
         abs_voltage = np.abs(voltage[chan, :])
         thresholds[chan] = sigma * np.nanmedian(abs_voltage) / 0.6745
@@ -58,7 +59,7 @@ def single_thresholds_and_samples(voltage, sigma):
     if voltage.ndim == 1:
         voltage = np.expand_dims(voltage, 0)
     num_channels = voltage.shape[0]
-    thresholds = np.empty((num_channels, ))
+    thresholds = np.empty((num_channels,))
     samples_over_thresh = []
     for chan in range(0, num_channels):
         abs_voltage = np.abs(voltage[chan, :])
@@ -69,11 +70,12 @@ def single_thresholds_and_samples(voltage, sigma):
 
 
 def identify_threshold_crossings(
-        chan_voltage,
-        probe_dict,
-        threshold,
-        skip=0.,
-        align_window=[-5e-4, 5e-4]) -> tuple[np.ndarray, int]:
+    chan_voltage,
+    probe_dict,
+    threshold,
+    skip=0.0,
+    align_window=[-5e-4, 5e-4],
+) -> tuple[np.ndarray, int]:
     """
 
     Args:
@@ -97,8 +99,8 @@ def identify_threshold_crossings(
             account for skips or alignment)
     """
 
-    sampling_rate = probe_dict['sampling_rate']
-    n_samples = probe_dict['n_samples']
+    sampling_rate = probe_dict["sampling_rate"]
+    n_samples = probe_dict["n_samples"]
 
     skip_indices = max(int(round(skip * sampling_rate)), 1) - 1
 
@@ -108,9 +110,11 @@ def identify_threshold_crossings(
 
     # Find points above threshold where preceeding sample was below threshold (excludes first point)
     first_thresh_index[1:] = np.logical_and(
-        voltage[1:] > threshold,
-        voltage[0:-1] <= threshold)
-    events: np.ndarray = np.nonzero(first_thresh_index)[0]  # Indices of threshold crossings in array
+        voltage[1:] > threshold, voltage[0:-1] <= threshold
+    )
+    events: np.ndarray = np.nonzero(first_thresh_index)[
+        0
+    ]  # Indices of threshold crossings in array
 
     # This is the raw total number of threshold crossings
     n_crossings: int = events.shape[0]  # np.count_nonzero(voltage > threshold)
@@ -118,8 +122,12 @@ def identify_threshold_crossings(
     # Realign event times on min or max in align_window
     window = time_window_to_samples(align_window, sampling_rate)[0]
     for evt in range(0, events.size):
-        start = max(0, events[evt] + window[0])  # Start maximally at 0 or event plus window
-        stop = min(n_samples - 1, events[evt] + window[1])  # Stop minmally at event plus window or last index
+        start = max(
+            0, events[evt] + window[0]
+        )  # Start maximally at 0 or event plus window
+        stop = min(
+            n_samples - 1, events[evt] + window[1]
+        )  # Stop minmally at event plus window or last index
         window_clip = chan_voltage[start:stop]
         max_index = np.argmax(window_clip)  # Gets FIRST max in window
         max_value = window_clip[max_index]
@@ -146,4 +154,3 @@ def identify_threshold_crossings(
     events = events[~bad_index]
 
     return events, n_crossings
-
