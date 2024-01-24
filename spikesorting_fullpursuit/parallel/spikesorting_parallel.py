@@ -230,7 +230,11 @@ def print_mem_usage(num=None):
 ########################################################
 
 
-def init_zca_voltage(seg_voltages_to_share, shapes_to_share, v_dtype):
+def init_zca_voltage(
+    seg_voltages_to_share,
+    shapes_to_share,
+    v_dtype,
+):
     # Make voltages global so they don't need to be pickled to share with processes
     global zca_pool_dict
     zca_pool_dict = {}
@@ -257,7 +261,12 @@ def init_zca_voltage_mmap(seg_voltages):
     return
 
 
-def parallel_zca_and_threshold(seg_num, sigma, zca_cushion, n_samples):
+def parallel_zca_and_threshold(
+    seg_num,
+    sigma,
+    zca_cushion,
+    n_samples,
+):
     """
     Multiprocessing wrapper for single_thresholds_and_samples and
     preprocessing.get_noise_sampled_zca_matrix to get the ZCA voltage for each
@@ -298,7 +307,12 @@ def parallel_zca_and_threshold(seg_num, sigma, zca_cushion, n_samples):
     return thresholds, seg_over_thresh, zca_matrix
 
 
-def parallel_zca_and_threshold_mmap(seg_num, sigma, zca_cushion, n_samples):
+def parallel_zca_and_threshold_mmap(
+    seg_num,
+    sigma,
+    zca_cushion,
+    n_samples,
+):
     """
     Multiprocessing wrapper for single_thresholds_and_samples and
     preprocessing.get_noise_sampled_zca_matrix to get the ZCA voltage for each
@@ -349,7 +363,11 @@ def parallel_zca_and_threshold_mmap(seg_num, sigma, zca_cushion, n_samples):
 
 
 def threshold_and_zca_voltage_parallel(
-    seg_voltages, sigma, zca_cushion, n_samples=1e6, use_memmap=False
+    seg_voltages,
+    sigma,
+    zca_cushion,
+    n_samples=1e6,
+    use_memmap=False,
 ):
     """
     Use parallel processing to get thresholds and ZCA voltage for each segment
@@ -465,7 +483,11 @@ def print_process_info(title):
 
 
 def check_spike_alignment(
-    clips, event_indices, neuron_labels, curr_chan_inds, settings
+    clips,
+    event_indices,
+    neuron_labels,
+    curr_chan_inds,
+    settings,
 ):
     """
     Wavelet alignment can bounce back and forth based on noise blips if
@@ -530,7 +552,7 @@ def check_spike_alignment(
             curr_chan_inds=np.arange(0, combined_clips.shape[1]),
         )
         # pseudo_labels = isosplit6(scores)
-        #pseudo_labels = isosplit6(scores, initial_labels=pseudo_labels)
+        # pseudo_labels = isosplit6(scores, initial_labels=pseudo_labels)
 
         pseudo_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
             scores,
@@ -577,7 +599,12 @@ def check_spike_alignment(
     return event_indices, any_merged
 
 
-def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
+def spike_sort_item_parallel(
+    data_dict,
+    use_cpus,
+    work_item,
+    settings,
+):
     """
     do_ZCA_transform, filter_band is not used here but prevents errors from passing kwargs.
     """
@@ -1064,7 +1091,14 @@ def spike_sort_item_parallel(data_dict, use_cpus, work_item, settings):
 
 
 def initial_channel_sort(
-    chan, clips, crossings, curr_chan_inds, item_dict, neighbors, settings, voltage
+    chan,
+    clips,
+    crossings,
+    curr_chan_inds,
+    item_dict,
+    neighbors,
+    settings,
+    voltage,
 ):
     median_cluster_size = min(100, int(np.around(crossings.size / 1000)))
     if crossings.size > 1:
@@ -1086,9 +1120,9 @@ def initial_channel_sort(
                 scores, median_cluster_size, n_random=n_random
             )
         )
-        neuron_labels = isosplit6(scores)
+        # neuron_labels = isosplit6(scores)
         # neuron_labels = isosplit6(scores, initial_labels=neuron_labels)
-        """
+
         neuron_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
             scores,
             neuron_labels,
@@ -1097,7 +1131,6 @@ def initial_channel_sort(
             match_cluster_size=settings["match_cluster_size"],
             check_splits=settings["check_splits"],
         )
-        """
 
         if settings["verbose"]:
             curr_num_clusters, n_per_cluster = np.unique(
@@ -1171,9 +1204,9 @@ def initial_channel_sort(
                     scores, median_cluster_size, n_random=n_random
                 )
             )
-            neuron_labels = isosplit6(scores)
+            # neuron_labels = isosplit6(scores)
             # neuron_labels = isosplit6(scores, initial_labels=neuron_labels)
-            """
+
             neuron_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
                 scores,
                 neuron_labels,
@@ -1182,7 +1215,6 @@ def initial_channel_sort(
                 match_cluster_size=settings["match_cluster_size"],
                 check_splits=settings["check_splits"],
             )
-            """
 
             if settings["verbose"]:
                 curr_num_clusters, n_per_cluster = np.unique(
@@ -1243,8 +1275,8 @@ def initial_channel_sort(
             """
             Using isosplit6 here results in overclustering on testing. Not clear what the difference is
             """
-            #neuron_labels = isosplit6(scores)
-            #neuron_labels = isosplit6(scores, initial_labels=neuron_labels)
+            # neuron_labels = isosplit6(scores)
+            # neuron_labels = isosplit6(scores, initial_labels=neuron_labels)
 
             neuron_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
                 scores,
@@ -1254,7 +1286,6 @@ def initial_channel_sort(
                 match_cluster_size=settings["match_cluster_size"],
                 check_splits=settings["check_splits"],
             )
-
 
     else:
         neuron_labels = np.zeros(1, dtype=np.int64)
@@ -1267,7 +1298,12 @@ def initial_channel_sort(
 
 
 def deploy_parallel_sort(
-    manager, cpu_queue, cpu_alloc, work_items, init_dict, settings
+    manager,
+    cpu_queue,
+    cpu_alloc,
+    work_items,
+    init_dict,
+    settings,
 ):
     """This function takes the basic pre-made inputs for calling
     spike_sort_item_parallel and handles deployment and deletion of the
