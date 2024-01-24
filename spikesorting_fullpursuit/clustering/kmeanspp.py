@@ -5,7 +5,7 @@ def initial_cluster_farthest(
         data,
         median_cluster_size,
         choose_percentile=0.95,
-        n_random=0):
+        n_random=0,):
     """
     Create distance based cluster labels along the rows of data.
 
