@@ -8,7 +8,11 @@ from spikesorting_fullpursuit.c_cython import sort_cython
 
 
 def pca_scores(
-    spikes, compute_pcs=None, pcs_as_index=True, return_V=False, return_E=False
+    spikes,
+    compute_pcs=None,
+    pcs_as_index=True,
+    return_V=False,
+    return_E=False,
 ):
     """
     Given a set of spikes which is an MxN matrix (M spikes x N timepoints), we
@@ -63,7 +67,10 @@ def pca_scores(
 
 
 def optimal_reconstruction_pca_order(
-    spikes, check_components=None, max_components=None, min_components=0
+    spikes,
+    check_components=None,
+    max_components=None,
+    min_components=0,
 ):
     """
     Used as an alternative to 'max_pca_components_cross_validation'.
@@ -558,7 +565,7 @@ def branch_pca_2_0(
                 scores, median_cluster_size, n_random=n_random
             )
         )
-        #clust_labels = isosplit6(scores)
+        # clust_labels = isosplit6(scores)
         # clust_labels = isosplit6(scores, initial_labels=clust_labels)
 
         clust_labels = spikesorting_fullpursuit.clustering.isocut.merge_clusters(
