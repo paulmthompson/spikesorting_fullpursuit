@@ -59,10 +59,14 @@ def align_events_with_template(
     )  # Add one so that last element is included
 
     clips, valid_inds = get_singlechannel_clips(
-        probe_dict, chan_voltage, event_indices, clip_width_s=cc_clip_width
+        probe_dict,
+        chan_voltage,
+        event_indices,
+        clip_width_s=cc_clip_width,
     )
     event_indices = event_indices[valid_inds]
     neuron_labels = neuron_labels[valid_inds]
+
     templates, labels = calculate_templates(
         clips[:, temp_index[0] : temp_index[1]], neuron_labels
     )
@@ -119,10 +123,14 @@ def align_events_with_best_template(
 
     window, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
     clips, valid_inds = get_singlechannel_clips(
-        probe_dict, chan_voltage, event_indices, clip_width_s=clip_width_s
+        probe_dict,
+        chan_voltage,
+        event_indices,
+        clip_width_s=clip_width_s,
     )
     event_indices = event_indices[valid_inds]
     neuron_labels = neuron_labels[valid_inds]
+
     overlaps = np.zeros(event_indices.size, dtype="bool")
     templates, labels = calculate_templates(clips, neuron_labels)
     templates = [(t) / np.amax(np.abs(t)) for t in templates]
@@ -151,11 +159,10 @@ def align_events_with_best_template(
 
 
 def align_templates(
-    probe_dict,
-    chan_voltage,
-    neuron_labels,
+    clips,
     event_indices,
-    clip_width_s,
+    neuron_labels,
+    window,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Aligns templates to each other and shift their event indices accordingly.
@@ -166,35 +173,17 @@ def align_templates(
     absolute value is centered on the clip width.
 
     Args:
-        item_dict = {'sampling_rate',
-                     'n_samples',
-                     'thresholds': 1D numpy array of thresholds for each channel
-                     'v_dtype',
-                     'ID',
-                     'memmap_dir',
-                     'memmap_fID'
-        chan_voltage: 1D numpy array of voltage values for single channel
+        clips:
+        event_indices: 1D numpy array of indices of threshold crossings
         neuron_labels: 1D ndarray of dtype int64
             Numerical labels indicating the membership of
             each event_indices (spike clip index) as unique neuron.
-        event_indices: 1D numpy array of indices of threshold crossings
-        clip_width_s: list of two floats, time window in seconds to align
+        window: Tuple containing pre and post window sizes in samples
 
     Returns:
         event_indices: 1D numpy array of indices of threshold crossings
-        neuron_labels: 1D numpy array of neuron labels
-        valid_inds: 1D numpy array of booleans, which specify
-            which of event indices are valid from input
     """
 
-    sampling_rate = probe_dict["sampling_rate"]
-
-    window, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
-    clips, valid_inds = get_singlechannel_clips(
-        probe_dict, chan_voltage, event_indices, clip_width_s=clip_width_s
-    )
-    event_indices = event_indices[valid_inds]
-    neuron_labels = neuron_labels[valid_inds]
     window = np.abs(window)
     templates, labels = calculate_templates(clips, neuron_labels)
 
@@ -211,7 +200,7 @@ def align_templates(
             shift = np.argmin(t)
         event_indices[t_select] += shift - window[0] - 1
 
-    return event_indices, neuron_labels, valid_inds
+    return event_indices
 
 
 def wavelet_align_events(
@@ -229,11 +218,11 @@ def wavelet_align_events(
     used to input into final sorting, as in cluster sharpening.
 
     Args:
-        clips
+        clips: SINGLE CHANNEL clips
         event_indices: 1D numpy array of indices of threshold crossings
-        window:
+        window: Tuple containing pre and post window sizes in samples
         band_width: Frequency band of bandpass filter
-        sampling_rate
+        sampling_rate: Hz
 
     Returns:
         event_indices: 1D numpy array of indices of threshold crossings

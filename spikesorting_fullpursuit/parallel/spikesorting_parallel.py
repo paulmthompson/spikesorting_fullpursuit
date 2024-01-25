@@ -763,6 +763,7 @@ def spike_sort_item_parallel(
             use_memmap=settings["use_memmap"],
         )
         crossings = segment_parallel.keep_valid_inds([crossings], valid_event_indices)
+
         if settings["sort_peak_clips_only"]:
             keep_clips = clip_utils.keep_max_on_main(clips, curr_chan_inds)
             crossings = crossings[keep_clips]
@@ -852,16 +853,19 @@ def spike_sort_item_parallel(
             use_memmap=settings["use_memmap"],
         )
         crossings, neuron_labels = segment_parallel.keep_valid_inds(
-            [crossings, neuron_labels], valid_event_indices
+            [crossings, neuron_labels],
+            valid_event_indices,
         )
 
         # Remove deviant clips *before* doing branch PCA to avoid getting clusters
         # of overlaps or garbage
         keep_clips = clip_utils.cleanup_clusters(
-            clips[:, curr_chan_inds[0] : curr_chan_inds[-1] + 1], neuron_labels
+            clips[:, curr_chan_inds[0] : curr_chan_inds[-1] + 1],
+            neuron_labels,
         )
         crossings, neuron_labels = segment_parallel.keep_valid_inds(
-            [crossings, neuron_labels], keep_clips
+            [crossings, neuron_labels],
+            keep_clips,
         )
         if settings["use_memmap"]:
             # Need to recompute clips here because we can't get a memmap view
@@ -913,7 +917,8 @@ def spike_sort_item_parallel(
             # of overlaps or garbage, this time on full neighborhood
             keep_clips = clip_utils.cleanup_clusters(clips, neuron_labels)
             crossings, neuron_labels = segment_parallel.keep_valid_inds(
-                [crossings, neuron_labels], keep_clips
+                [crossings, neuron_labels],
+                keep_clips,
             )
             if settings["use_memmap"]:
                 # Need to recompute clips here because we can't get a memmap view
@@ -1138,7 +1143,9 @@ def initial_channel_sort(
         )
         neuron_labels = (
             spikesorting_fullpursuit.clustering.kmeanspp.initial_cluster_farthest(
-                scores, median_cluster_size, n_random=n_random
+                scores,
+                median_cluster_size,
+                n_random=n_random,
             )
         )
         # neuron_labels = isosplit6(scores)
@@ -1177,21 +1184,26 @@ def initial_channel_sort(
                 clip_width_s=settings["clip_width"],
             )
 
-            (
-                crossings,
-                neuron_labels,
-                _,
-            ) = spikesorting_fullpursuit.alignment.alignment.align_templates(
+            window, clip_width_s = time_window_to_samples(settings["clip_width"], settings['sampling_rate'])
+            clips, valid_inds = get_singlechannel_clips(
                 item_dict,
                 voltage[chan, :],
-                neuron_labels,
                 crossings,
                 clip_width_s=settings["clip_width"],
+            )
+            crossings = crossings[valid_inds]
+            neuron_labels = neuron_labels[valid_inds]
+            crossings = spikesorting_fullpursuit.alignment.alignment.align_templates(
+                clips,
+                crossings,
+                neuron_labels,
+                window,
             )
 
             if isinstance(clips, np.memmap):
                 clips._mmap.close()
                 del clips
+
             (
                 clips,
                 valid_event_indices,
@@ -1204,7 +1216,8 @@ def initial_channel_sort(
                 use_memmap=settings["use_memmap"],
             )
             crossings, neuron_labels = segment_parallel.keep_valid_inds(
-                [crossings, neuron_labels], valid_event_indices
+                [crossings, neuron_labels],
+                valid_event_indices,
             )
 
             scores = spikesorting_fullpursuit.dim_reduce.pca.compute_pca(
@@ -1222,7 +1235,9 @@ def initial_channel_sort(
 
             neuron_labels = (
                 spikesorting_fullpursuit.clustering.kmeanspp.initial_cluster_farthest(
-                    scores, median_cluster_size, n_random=n_random
+                    scores,
+                    median_cluster_size,
+                    n_random=n_random,
                 )
             )
             # neuron_labels = isosplit6(scores)
@@ -1249,7 +1264,11 @@ def initial_channel_sort(
                 )
 
         crossings, any_merged = check_spike_alignment(
-            clips, crossings, neuron_labels, curr_chan_inds, settings
+            clips,
+            crossings,
+            neuron_labels,
+            curr_chan_inds,
+            settings,
         )
         if any_merged:
             # Resort based on new clip alignment
@@ -1271,7 +1290,8 @@ def initial_channel_sort(
                 use_memmap=settings["use_memmap"],
             )
             crossings = segment_parallel.keep_valid_inds(
-                [crossings], valid_event_indices
+                [crossings],
+                valid_event_indices,
             )
 
             scores = spikesorting_fullpursuit.dim_reduce.pca.compute_pca(
@@ -1290,7 +1310,9 @@ def initial_channel_sort(
 
             neuron_labels = (
                 spikesorting_fullpursuit.clustering.kmeanspp.initial_cluster_farthest(
-                    scores, median_cluster_size, n_random=n_random
+                    scores,
+                    median_cluster_size,
+                    n_random=n_random,
                 )
             )
             """
