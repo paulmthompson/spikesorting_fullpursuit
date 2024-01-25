@@ -641,7 +641,6 @@ def spike_sort_item_parallel(
     try:
         # Print this process' errors and output to a file
         if not settings["test_flag"] and settings["log_dir"] is not None:
-
             move_stdout_to_logdir(settings, work_item)
 
             print_process_info(
@@ -697,7 +696,8 @@ def spike_sort_item_parallel(
             n_crossings,
         ) = spikesorting_fullpursuit.threshold.threshold.identify_threshold_crossings(
             voltage[chan, :],
-            item_dict,
+            item_dict["sampling_rate"],
+            item_dict["n_samples"],
             item_dict["thresholds"][chan],
             skip=skip,
             align_window=align_window,
@@ -1070,10 +1070,7 @@ def calculate_min_cluster_size(item_dict, settings):
 def move_stdout_to_logdir(settings, work_item):
     if sys.platform == "win32":
         sys.stdout = open(
-            settings["log_dir"]
-            + "\\SpikeSortItem"
-            + str(work_item["ID"])
-            + ".out",
+            settings["log_dir"] + "\\SpikeSortItem" + str(work_item["ID"]) + ".out",
             "w",
         )
         sys.stderr = open(
@@ -1085,10 +1082,7 @@ def move_stdout_to_logdir(settings, work_item):
         )
     else:
         sys.stdout = open(
-            settings["log_dir"]
-            + "/SpikeSortItem"
-            + str(work_item["ID"])
-            + ".out",
+            settings["log_dir"] + "/SpikeSortItem" + str(work_item["ID"]) + ".out",
             "w",
         )
         sys.stderr = open(
@@ -2018,9 +2012,9 @@ def get_segment_onsets_and_offsets(Probe, settings):
 
 def adjust_segment_duration_and_overlap(Probe, settings):
     if (
-            (settings["segment_duration"] is None)
-            or (settings["segment_duration"] == np.inf)
-            or (settings["segment_duration"] * Probe.sampling_rate >= Probe.n_samples)
+        (settings["segment_duration"] is None)
+        or (settings["segment_duration"] == np.inf)
+        or (settings["segment_duration"] * Probe.sampling_rate >= Probe.n_samples)
     ):
         settings["segment_overlap"] = 0
         settings["segment_duration"] = Probe.n_samples
@@ -2110,8 +2104,8 @@ def check_electrode_neighbor_sites(Probe):
 
 def is_filter_within_nyquist(Probe, settings):
     if (
-            settings["filter_band"][0] > Probe.sampling_rate / 2
-            or settings["filter_band"][1] > Probe.sampling_rate / 2
+        settings["filter_band"][0] > Probe.sampling_rate / 2
+        or settings["filter_band"][1] > Probe.sampling_rate / 2
     ):
         raise ValueError(
             "Input setting 'filter_band' exceeds Nyquist limit for sampling rate of",

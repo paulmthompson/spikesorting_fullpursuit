@@ -71,7 +71,8 @@ def single_thresholds_and_samples(voltage, sigma):
 
 def identify_threshold_crossings(
     chan_voltage,
-    probe_dict,
+    sampling_rate,
+    n_samples,
     threshold,
     skip=0.0,
     align_window=[-5e-4, 5e-4],
@@ -81,13 +82,8 @@ def identify_threshold_crossings(
     Args:
         chan_voltage: 2D numpy array of voltage values for segment
             (channels x samples)
-        item_dict = {'sampling_rate',
-                     'n_samples',
-                     'thresholds': 1D numpy array of thresholds for each channel
-                     'v_dtype',
-                     'ID',
-                     'memmap_dir',
-                     'memmap_fID'
+        sampling_rate: sampling rate in Hz'
+        n_samples:
         threshold: float, threshold for this work item channel
         skip: float, minimum time between threshold crossings in seconds
         align_window: list of two floats, time window in seconds to align
@@ -98,9 +94,6 @@ def identify_threshold_crossings(
         n_crossings: int, total number of threshold crossings (does not
             account for skips or alignment)
     """
-
-    sampling_rate = probe_dict["sampling_rate"]
-    n_samples = probe_dict["n_samples"]
 
     skip_indices = max(int(round(skip * sampling_rate)), 1) - 1
 
