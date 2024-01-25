@@ -268,6 +268,8 @@ def get_singlechannel_clips(
     n_samples = probe_dict["n_samples"]
 
     window, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
+    clip_width_samples = window[1] - window[0]
+
     # Ignore spikes whose clips extend beyond the data and create mask for removing them
     valid_event_indices = np.ones(event_indices.shape[0], dtype="bool")
 
@@ -293,11 +295,11 @@ def get_singlechannel_clips(
             clip_fname,
             dtype=probe_dict["v_dtype"],
             mode="w+",
-            shape=(np.count_nonzero(valid_event_indices), window[1] - window[0]),
+            shape=(np.count_nonzero(valid_event_indices), clip_width_samples),
         )
     else:
         spike_clips = np.empty(
-            (np.count_nonzero(valid_event_indices), window[1] - window[0]),
+            (np.count_nonzero(valid_event_indices), clip_width_samples),
             dtype=probe_dict["v_dtype"],
         )
 
@@ -318,7 +320,7 @@ def get_singlechannel_clips(
             clip_fname,
             dtype=probe_dict["v_dtype"],
             mode="r",
-            shape=(np.count_nonzero(valid_event_indices), window[1] - window[0]),
+            shape=(np.count_nonzero(valid_event_indices), clip_width_samples),
         )
 
     return spike_clips, valid_event_indices
@@ -417,11 +419,14 @@ def get_clips(
     n_samples = probe_dict["n_samples"]
 
     window, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
+    clip_width_samples = (window[1] - window[0]) * len(neighbors)
+
     if len(event_indices) == 0:
         # No indices input
         return np.zeros(
-            (0, (window[1] - window[0]) * len(neighbors)), dtype=probe_dict["v_dtype"]
+            (0, clip_width_samples), dtype=probe_dict["v_dtype"]
         ), np.ones(0, dtype="bool")
+
     # Ignore spikes whose clips extend beyond the data and create mask for removing them
     valid_event_indices: np.ndarray = np.ones(event_indices.shape[0], dtype="bool")
     start_ind = 0
@@ -451,14 +456,14 @@ def get_clips(
             mode="w+",
             shape=(
                 np.count_nonzero(valid_event_indices),
-                (window[1] - window[0]) * len(neighbors),
+                clip_width_samples,
             ),
         )
     else:
         spike_clips: np.ndarray = np.empty(
             (
                 np.count_nonzero(valid_event_indices),
-                (window[1] - window[0]) * len(neighbors),
+                clip_width_samples,
             ),
             dtype=probe_dict["v_dtype"],
         )
@@ -486,7 +491,7 @@ def get_clips(
             mode="r",
             shape=(
                 np.count_nonzero(valid_event_indices),
-                (window[1] - window[0]) * len(neighbors),
+                clip_width_samples,
             ),
         )
 
