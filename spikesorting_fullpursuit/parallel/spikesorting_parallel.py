@@ -1578,15 +1578,9 @@ def spike_sort_parallel(Probe, **kwargs):
     n_threads = mkl.get_max_threads()  # Incoming number of threads
     # Get our settings
     settings = spike_sorting_settings_parallel(**kwargs)
-    # Check that fitler is appropriate
-    if (
-        settings["filter_band"][0] > Probe.sampling_rate / 2
-        or settings["filter_band"][1] > Probe.sampling_rate / 2
-    ):
-        raise ValueError(
-            "Input setting 'filter_band' exceeds Nyquist limit for sampling rate of",
-            Probe.sampling_rate,
-        )
+    # Check that filter is appropriate
+    is_filter_within_nyquist(Probe, settings)
+
     # Check that Probe neighborhood function is appropriate. Otherwise it can
     # generate seemingly mysterious errors
     try:
@@ -2082,3 +2076,14 @@ def spike_sort_parallel(Probe, **kwargs):
     if settings["verbose"]:
         print("Done.")
     return sort_data, work_items, sort_info
+
+
+def is_filter_within_nyquist(Probe, settings):
+    if (
+            settings["filter_band"][0] > Probe.sampling_rate / 2
+            or settings["filter_band"][1] > Probe.sampling_rate / 2
+    ):
+        raise ValueError(
+            "Input setting 'filter_band' exceeds Nyquist limit for sampling rate of",
+            Probe.sampling_rate,
+        )
