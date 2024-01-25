@@ -31,6 +31,8 @@ from spikesorting_fullpursuit.processing.wiener_filter import wiener_filter_segm
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 from spikesorting_fullpursuit.processing import zca, clip_utils
 from spikesorting_fullpursuit.processing import artifact
+from spikesorting_fullpursuit.processing.clip_utils import get_singlechannel_clips
+from spikesorting_fullpursuit.processing.conversions import time_window_to_samples
 
 
 def spike_sorting_settings_parallel(**kwargs):
@@ -719,19 +721,34 @@ def spike_sort_item_parallel(
             _,
             curr_chan_inds,
         ) = spikesorting_fullpursuit.processing.clip_utils.get_windows_and_indices(
-            settings["clip_width"], item_dict["sampling_rate"], chan, neighbors
+            settings["clip_width"],
+            item_dict["sampling_rate"],
+            chan,
+            neighbors,
         )
 
         exit_type = "Found crossings"
 
-        # Realign spikes based on a common wavelet
-        crossings = spikesorting_fullpursuit.alignment.alignment.wavelet_align_events(
+        window, clip_width_s = time_window_to_samples(
+            settings["clip_width"], item_dict["sampling_rate"]
+        )
+
+        clips, valid_inds = get_singlechannel_clips(
             item_dict,
             voltage[chan, :],
             crossings,
-            settings["clip_width"],
-            settings["filter_band"],
+            clip_width_s=clip_width_s,
             use_memmap=settings["use_memmap"],
+        )
+        crossings = crossings[valid_inds]
+
+        # Realign spikes based on a common wavelet
+        crossings = spikesorting_fullpursuit.alignment.alignment.wavelet_align_events(
+            clips,
+            crossings,
+            window,
+            settings["filter_band"],
+            item_dict["sampling_rate"],
         )
 
         (

@@ -273,13 +273,7 @@ def get_singlechannel_clips(
     # Ignore spikes whose clips extend beyond the data and create mask for removing them
     valid_event_indices = np.ones(event_indices.shape[0], dtype="bool")
 
-    start_ind = 0
-
-    start_ind = validate_first_indices(
-        event_indices, start_ind, valid_event_indices, window
-    )
-
-    stop_ind = validate_last_indices(
+    start_ind, stop_ind = check_edge_cases(
         event_indices, n_samples, valid_event_indices, window
     )
 
@@ -295,11 +289,17 @@ def get_singlechannel_clips(
             clip_fname,
             dtype=probe_dict["v_dtype"],
             mode="w+",
-            shape=(np.count_nonzero(valid_event_indices), clip_width_samples),
+            shape=(
+                np.count_nonzero(valid_event_indices),
+                clip_width_samples,
+            ),
         )
     else:
         spike_clips = np.empty(
-            (np.count_nonzero(valid_event_indices), clip_width_samples),
+            (
+                np.count_nonzero(valid_event_indices),
+                clip_width_samples,
+            ),
             dtype=probe_dict["v_dtype"],
         )
 
@@ -320,10 +320,21 @@ def get_singlechannel_clips(
             clip_fname,
             dtype=probe_dict["v_dtype"],
             mode="r",
-            shape=(np.count_nonzero(valid_event_indices), clip_width_samples),
+            shape=(
+                np.count_nonzero(valid_event_indices),
+                clip_width_samples,
+            ),
         )
 
     return spike_clips, valid_event_indices
+
+
+def check_edge_cases(event_indices, n_samples, valid_event_indices, window):
+    start_ind = validate_first_indices(event_indices, 0, valid_event_indices, window)
+    stop_ind = validate_last_indices(
+        event_indices, n_samples, valid_event_indices, window
+    )
+    return start_ind, stop_ind
 
 
 def validate_last_indices(
@@ -402,6 +413,8 @@ def get_clips(
         neighbors: np.ndarray of channel indices to use for clips
         event_indices: 1D numpy array of indices of threshold crossings
         clip_width_s: list of two floats, time window in seconds to align
+        use_memmap:
+        check_valid:
 
     Returns:
         spike_clips: waveforms for each event in 2D array
@@ -423,19 +436,15 @@ def get_clips(
 
     if len(event_indices) == 0:
         # No indices input
-        return np.zeros(
-            (0, clip_width_samples), dtype=probe_dict["v_dtype"]
-        ), np.ones(0, dtype="bool")
+        return np.zeros((0, clip_width_samples), dtype=probe_dict["v_dtype"]), np.ones(
+            0, dtype="bool"
+        )
 
     # Ignore spikes whose clips extend beyond the data and create mask for removing them
     valid_event_indices: np.ndarray = np.ones(event_indices.shape[0], dtype="bool")
     start_ind = 0
     if check_valid:
-        start_ind = validate_first_indices(
-            event_indices, start_ind, valid_event_indices, window
-        )
-
-        stop_ind = validate_last_indices(
+        start_ind, stop_ind = check_edge_cases(
             event_indices, n_samples, valid_event_indices, window
         )
 
