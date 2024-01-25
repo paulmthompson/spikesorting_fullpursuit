@@ -1583,26 +1583,8 @@ def spike_sort_parallel(Probe, **kwargs):
 
     # Check that Probe neighborhood function is appropriate. Otherwise it can
     # generate seemingly mysterious errors
-    try:
-        check_neighbors = Probe.get_neighbors(0)
-    except:
-        raise ValueError("Input Probe object must have a valid get_neighbors() method.")
-    if type(check_neighbors) != np.ndarray:
-        raise ValueError(
-            "Probe get_neighbors() method must return a numpy ndarray of \
-                dtype np.int64."
-        )
-    elif check_neighbors.dtype != np.int64:
-        print(check_neighbors.dtype)
-        raise ValueError(
-            "Probe get_neighbors() method must return a \
-                numpy ndarray of dtype np.int64."
-        )
-    elif np.any(np.diff(check_neighbors) <= 0):
-        raise ValueError(
-            "Probe get_neighbors() method must return \
-                neighbor channels IN ORDER without duplicates."
-        )
+    check_electrode_neighbor_sites(Probe)
+
     # For convenience, necessary to define clip width as negative for first entry
     if settings["clip_width"][0] > 0:
         settings["clip_width"] *= -1
@@ -1614,11 +1596,9 @@ def spike_sort_parallel(Probe, **kwargs):
         "gpu_lock": manager.Lock(),
         "filter_band": settings["filter_band"],
     }
-    if settings["log_dir"] is not None:
-        if os.path.exists(settings["log_dir"]):
-            rmtree(settings["log_dir"])
-            time.sleep(0.5)  # NEED SLEEP SO CAN DELETE BEFORE RECREATING!!!
-        os.makedirs(settings["log_dir"])
+
+    create_log_dir(settings)
+
     # Perform artifact removal on input Probe voltage
     if settings["remove_artifacts"]:
         if Probe.num_channels == 1:
@@ -2076,6 +2056,37 @@ def spike_sort_parallel(Probe, **kwargs):
     if settings["verbose"]:
         print("Done.")
     return sort_data, work_items, sort_info
+
+
+def create_log_dir(settings):
+    if settings["log_dir"] is not None:
+        if os.path.exists(settings["log_dir"]):
+            rmtree(settings["log_dir"])
+            time.sleep(0.5)  # NEED SLEEP SO CAN DELETE BEFORE RECREATING!!!
+        os.makedirs(settings["log_dir"])
+
+
+def check_electrode_neighbor_sites(Probe):
+    try:
+        check_neighbors = Probe.get_neighbors(0)
+    except:
+        raise ValueError("Input Probe object must have a valid get_neighbors() method.")
+    if type(check_neighbors) != np.ndarray:
+        raise ValueError(
+            "Probe get_neighbors() method must return a numpy ndarray of \
+                dtype np.int64."
+        )
+    elif check_neighbors.dtype != np.int64:
+        print(check_neighbors.dtype)
+        raise ValueError(
+            "Probe get_neighbors() method must return a \
+                numpy ndarray of dtype np.int64."
+        )
+    elif np.any(np.diff(check_neighbors) <= 0):
+        raise ValueError(
+            "Probe get_neighbors() method must return \
+                neighbor channels IN ORDER without duplicates."
+        )
 
 
 def is_filter_within_nyquist(Probe, settings):
