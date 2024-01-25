@@ -265,32 +265,24 @@ def get_singlechannel_clips(
     """
 
     sampling_rate = probe_dict["sampling_rate"]
+    n_samples = probe_dict["n_samples"]
 
     window, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
     # Ignore spikes whose clips extend beyond the data and create mask for removing them
     valid_event_indices = np.ones(event_indices.shape[0], dtype="bool")
 
     start_ind = 0
-    n = event_indices[start_ind]
-    while n + window[0] < 0:
-        valid_event_indices[start_ind] = False
-        start_ind += 1
-        if start_ind == event_indices.size:
-            # There are no valid indices
-            valid_event_indices[:] = False
-            return None, valid_event_indices
-        n = event_indices[start_ind]
 
-    stop_ind = event_indices.shape[0] - 1
-    n = event_indices[stop_ind]
-    while n + window[1] > probe_dict["n_samples"]:
-        valid_event_indices[stop_ind] = False
-        stop_ind -= 1
-        if stop_ind < 0:
-            # There are no valid indices
-            valid_event_indices[:] = False
-            return None, valid_event_indices
-        n = event_indices[stop_ind]
+    start_ind = validate_first_indices(
+        event_indices, start_ind, valid_event_indices, window
+    )
+
+    stop_ind = validate_last_indices(
+        event_indices, n_samples, valid_event_indices, window
+    )
+
+    if np.all(valid_event_indices == False):
+        return None, valid_event_indices
 
     if use_memmap:
         clip_fname = path.join(
@@ -330,6 +322,45 @@ def get_singlechannel_clips(
         )
 
     return spike_clips, valid_event_indices
+
+
+def validate_last_indices(
+    event_indices,
+    n_samples,
+    valid_event_indices,
+    window,
+):
+    stop_ind = event_indices.shape[0] - 1
+    n = event_indices[stop_ind]
+    while n + window[1] > n_samples:
+        valid_event_indices[stop_ind] = False
+        stop_ind -= 1
+        if stop_ind < 0:
+            # There are no valid indices
+            valid_event_indices[:] = False
+            break
+
+        n = event_indices[stop_ind]
+    return stop_ind
+
+
+def validate_first_indices(
+    event_indices,
+    start_ind,
+    valid_event_indices,
+    window,
+):
+    n = event_indices[start_ind]
+    while n + window[0] < 0:
+        valid_event_indices[start_ind] = False
+        start_ind += 1
+        if start_ind == event_indices.size:
+            # There are no valid indices
+            valid_event_indices[:] = False
+            break
+
+        n = event_indices[start_ind]
+    return start_ind
 
 
 def get_clips(
@@ -383,6 +414,7 @@ def get_clips(
         raise ValueError("Event_indices must be one dimensional array of indices")
 
     sampling_rate = probe_dict["sampling_rate"]
+    n_samples = probe_dict["n_samples"]
 
     window, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
     if len(event_indices) == 0:
@@ -394,25 +426,17 @@ def get_clips(
     valid_event_indices: np.ndarray = np.ones(event_indices.shape[0], dtype="bool")
     start_ind = 0
     if check_valid:
-        n = event_indices[start_ind]
-        while (n + window[0]) < 0:
-            valid_event_indices[start_ind] = False
-            start_ind += 1
-            if start_ind == event_indices.size:
-                # There are no valid indices
-                valid_event_indices[:] = False
-                return None, valid_event_indices
-            n = event_indices[start_ind]
-        stop_ind = event_indices.shape[0] - 1
-        n = event_indices[stop_ind]
-        while (n + window[1]) >= probe_dict["n_samples"]:
-            valid_event_indices[stop_ind] = False
-            stop_ind -= 1
-            if stop_ind < 0:
-                # There are no valid indices
-                valid_event_indices[:] = False
-                return None, valid_event_indices
-            n = event_indices[stop_ind]
+        start_ind = validate_first_indices(
+            event_indices, start_ind, valid_event_indices, window
+        )
+
+        stop_ind = validate_last_indices(
+            event_indices, n_samples, valid_event_indices, window
+        )
+
+        if np.all(valid_event_indices == False):
+            return None, valid_event_indices
+
     else:
         stop_ind = len(event_indices) - 1
 
