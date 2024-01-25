@@ -1615,64 +1615,7 @@ def spike_sort_parallel(Probe, **kwargs):
         )
     # Convert segment duration and overlaps to indices from their values input
     # in seconds and adjust as needed
-    if (
-        (settings["segment_duration"] is None)
-        or (settings["segment_duration"] == np.inf)
-        or (settings["segment_duration"] * Probe.sampling_rate >= Probe.n_samples)
-    ):
-        settings["segment_overlap"] = 0
-        settings["segment_duration"] = Probe.n_samples
-    else:
-        if settings["segment_overlap"] is None:
-            # If segment is specified with no overlap, use minimal overlap that
-            # will not miss spikes on the edges
-            clip_samples = (
-                spikesorting_fullpursuit.processing.conversions.time_window_to_samples(
-                    settings["clip_width"], Probe.sampling_rate
-                )[0]
-            )
-            settings["segment_overlap"] = int(3 * (clip_samples[1] - clip_samples[0]))
-        elif settings["segment_overlap"] <= 0:
-            # If segment is specified with no overlap, use minimal overlap that
-            # will not miss spikes on the edges
-            clip_samples = (
-                spikesorting_fullpursuit.processing.conversions.time_window_to_samples(
-                    settings["clip_width"], Probe.sampling_rate
-                )[0]
-            )
-            settings["segment_overlap"] = int(3 * (clip_samples[1] - clip_samples[0]))
-        else:
-            settings["segment_overlap"] = int(
-                np.ceil(settings["segment_overlap"] * Probe.sampling_rate)
-            )
-        input_duration_seconds = settings["segment_duration"]
-        settings["segment_duration"] = int(
-            np.floor(settings["segment_duration"] * Probe.sampling_rate)
-        )
-        if settings["segment_overlap"] >= settings["segment_duration"]:
-            raise ValueError("Segment overlap must be <= segment duration.")
-        # Minimum number of segments at current segment duration and overlap
-        # needed to cover all samples. Using floor will round to find the next
-        # multiple that is >= the input segment duration.
-        n_segs = np.floor(
-            (Probe.n_samples - settings["segment_duration"])
-            / (settings["segment_duration"] - settings["segment_overlap"])
-        )
-        # Modify segment duration to next larger multiple of recording duration
-        # given fixed, unaltered input overlap duration
-        settings["segment_duration"] = int(
-            np.ceil(
-                (Probe.n_samples + n_segs * settings["segment_overlap"]) / (n_segs + 1)
-            )
-        )
-
-        print(
-            "Input segment duration was rounded from",
-            input_duration_seconds,
-            "up to",
-            settings["segment_duration"] / Probe.sampling_rate,
-            "seconds to make segments equal length.",
-        )
+    adjust_segment_duration_and_overlap(Probe, settings)
 
     settings["n_threshold_crossings"] = np.zeros(Probe.num_channels)
 
@@ -2056,6 +1999,67 @@ def spike_sort_parallel(Probe, **kwargs):
     if settings["verbose"]:
         print("Done.")
     return sort_data, work_items, sort_info
+
+
+def adjust_segment_duration_and_overlap(Probe, settings):
+    if (
+            (settings["segment_duration"] is None)
+            or (settings["segment_duration"] == np.inf)
+            or (settings["segment_duration"] * Probe.sampling_rate >= Probe.n_samples)
+    ):
+        settings["segment_overlap"] = 0
+        settings["segment_duration"] = Probe.n_samples
+    else:
+        if settings["segment_overlap"] is None:
+            # If segment is specified with no overlap, use minimal overlap that
+            # will not miss spikes on the edges
+            clip_samples = (
+                spikesorting_fullpursuit.processing.conversions.time_window_to_samples(
+                    settings["clip_width"], Probe.sampling_rate
+                )[0]
+            )
+            settings["segment_overlap"] = int(3 * (clip_samples[1] - clip_samples[0]))
+        elif settings["segment_overlap"] <= 0:
+            # If segment is specified with no overlap, use minimal overlap that
+            # will not miss spikes on the edges
+            clip_samples = (
+                spikesorting_fullpursuit.processing.conversions.time_window_to_samples(
+                    settings["clip_width"], Probe.sampling_rate
+                )[0]
+            )
+            settings["segment_overlap"] = int(3 * (clip_samples[1] - clip_samples[0]))
+        else:
+            settings["segment_overlap"] = int(
+                np.ceil(settings["segment_overlap"] * Probe.sampling_rate)
+            )
+        input_duration_seconds = settings["segment_duration"]
+        settings["segment_duration"] = int(
+            np.floor(settings["segment_duration"] * Probe.sampling_rate)
+        )
+        if settings["segment_overlap"] >= settings["segment_duration"]:
+            raise ValueError("Segment overlap must be <= segment duration.")
+        # Minimum number of segments at current segment duration and overlap
+        # needed to cover all samples. Using floor will round to find the next
+        # multiple that is >= the input segment duration.
+        n_segs = np.floor(
+            (Probe.n_samples - settings["segment_duration"])
+            / (settings["segment_duration"] - settings["segment_overlap"])
+        )
+        # Modify segment duration to next larger multiple of recording duration
+        # given fixed, unaltered input overlap duration
+        settings["segment_duration"] = int(
+            np.ceil(
+                (Probe.n_samples + n_segs * settings["segment_overlap"]) / (n_segs + 1)
+            )
+        )
+
+        print(
+            "Input segment duration was rounded from",
+            input_duration_seconds,
+            "up to",
+            settings["segment_duration"] / Probe.sampling_rate,
+            "seconds to make segments equal length.",
+        )
 
 
 def create_log_dir(settings):
