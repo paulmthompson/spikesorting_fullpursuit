@@ -641,37 +641,9 @@ def spike_sort_item_parallel(
     try:
         # Print this process' errors and output to a file
         if not settings["test_flag"] and settings["log_dir"] is not None:
-            # Move stdout to the log_dir file
-            if sys.platform == "win32":
-                sys.stdout = open(
-                    settings["log_dir"]
-                    + "\\SpikeSortItem"
-                    + str(work_item["ID"])
-                    + ".out",
-                    "w",
-                )
-                sys.stderr = open(
-                    settings["log_dir"]
-                    + "\\SpikeSortItem"
-                    + str(work_item["ID"])
-                    + "_errors.out",
-                    "w",
-                )
-            else:
-                sys.stdout = open(
-                    settings["log_dir"]
-                    + "/SpikeSortItem"
-                    + str(work_item["ID"])
-                    + ".out",
-                    "w",
-                )
-                sys.stderr = open(
-                    settings["log_dir"]
-                    + "/SpikeSortItem"
-                    + str(work_item["ID"])
-                    + "_errors.out",
-                    "w",
-                )
+
+            move_stdout_to_logdir(settings, work_item)
+
             print_process_info(
                 "spike_sort_item_parallel item {0}, channel {1}, segment {2}.".format(
                     work_item["ID"], work_item["channel"], work_item["seg_number"] + 1
@@ -738,17 +710,7 @@ def spike_sort_item_parallel(
         # Save this number for later
         settings["n_threshold_crossings"][chan] = n_crossings
 
-        min_cluster_size = (
-            np.floor(
-                settings["min_firing_rate"]
-                * item_dict["n_samples"]
-                / item_dict["sampling_rate"]
-            )
-        ).astype(np.int64)
-        if min_cluster_size < 1:
-            min_cluster_size = 1
-        if settings["verbose"]:
-            print("Using minimum cluster size of", min_cluster_size, flush=True)
+        min_cluster_size = calculate_min_cluster_size(item_dict, settings)
 
         (
             _,
@@ -1088,6 +1050,54 @@ def spike_sort_item_parallel(
             raise  # Reraise any exceptions in test mode only
     finally:
         wrap_up()
+
+
+def calculate_min_cluster_size(item_dict, settings):
+    min_cluster_size = (
+        np.floor(
+            settings["min_firing_rate"]
+            * item_dict["n_samples"]
+            / item_dict["sampling_rate"]
+        )
+    ).astype(np.int64)
+    if min_cluster_size < 1:
+        min_cluster_size = 1
+    if settings["verbose"]:
+        print("Using minimum cluster size of", min_cluster_size, flush=True)
+    return min_cluster_size
+
+
+def move_stdout_to_logdir(settings, work_item):
+    if sys.platform == "win32":
+        sys.stdout = open(
+            settings["log_dir"]
+            + "\\SpikeSortItem"
+            + str(work_item["ID"])
+            + ".out",
+            "w",
+        )
+        sys.stderr = open(
+            settings["log_dir"]
+            + "\\SpikeSortItem"
+            + str(work_item["ID"])
+            + "_errors.out",
+            "w",
+        )
+    else:
+        sys.stdout = open(
+            settings["log_dir"]
+            + "/SpikeSortItem"
+            + str(work_item["ID"])
+            + ".out",
+            "w",
+        )
+        sys.stderr = open(
+            settings["log_dir"]
+            + "/SpikeSortItem"
+            + str(work_item["ID"])
+            + "_errors.out",
+            "w",
+        )
 
 
 def initial_channel_sort(
@@ -1619,18 +1629,7 @@ def spike_sort_parallel(Probe, **kwargs):
 
     settings["n_threshold_crossings"] = np.zeros(Probe.num_channels)
 
-    segment_onsets = []
-    segment_offsets = []
-    curr_onset = 0
-    while curr_onset < Probe.n_samples:
-        segment_onsets.append(curr_onset)
-        segment_offsets.append(
-            min(curr_onset + settings["segment_duration"], Probe.n_samples)
-        )
-        if segment_offsets[-1] >= Probe.n_samples:
-            break
-        curr_onset += settings["segment_duration"] - settings["segment_overlap"]
-    print("Using ", len(segment_onsets), "segments per channel for sorting.")
+    segment_offsets, segment_onsets = get_segment_onsets_and_offsets(Probe, settings)
 
     if settings["do_ZCA_transform"]:
         zca_cushion = (
@@ -1999,6 +1998,22 @@ def spike_sort_parallel(Probe, **kwargs):
     if settings["verbose"]:
         print("Done.")
     return sort_data, work_items, sort_info
+
+
+def get_segment_onsets_and_offsets(Probe, settings):
+    segment_onsets = []
+    segment_offsets = []
+    curr_onset = 0
+    while curr_onset < Probe.n_samples:
+        segment_onsets.append(curr_onset)
+        segment_offsets.append(
+            min(curr_onset + settings["segment_duration"], Probe.n_samples)
+        )
+        if segment_offsets[-1] >= Probe.n_samples:
+            break
+        curr_onset += settings["segment_duration"] - settings["segment_overlap"]
+    print("Using ", len(segment_onsets), "segments per channel for sorting.")
+    return segment_offsets, segment_onsets
 
 
 def adjust_segment_duration_and_overlap(Probe, settings):
