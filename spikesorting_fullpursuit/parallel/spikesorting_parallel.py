@@ -827,15 +827,30 @@ def spike_sort_item_parallel(
         curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
 
         (
-            crossings,
-            neuron_labels,
-            _,
-        ) = spikesorting_fullpursuit.alignment.alignment.align_events_with_template(
+            cc_clip_width_s,
+            clip_width_s,
+        ) = spikesorting_fullpursuit.alignment.alignment.double_clip_width(
+            settings["clip_width"],
+            settings["sampling_rate"],
+        )
+
+        clips, valid_inds = get_singlechannel_clips(
             item_dict,
             voltage[chan, :],
-            neuron_labels,
             crossings,
-            clip_width_s=settings["clip_width"],
+            clip_width_s=cc_clip_width_s,
+        )
+        crossings = crossings[valid_inds]
+        neuron_labels = neuron_labels[valid_inds]
+
+        crossings = (
+            spikesorting_fullpursuit.alignment.alignment.align_events_with_template(
+                clips,
+                neuron_labels,
+                crossings,
+                clip_width_s=settings["clip_width"],
+                sampling_rate=settings["sampling_rate"],
+            )
         )
 
         if isinstance(clips, np.memmap):
@@ -1030,15 +1045,30 @@ def spike_sort_item_parallel(
 
         # Realign spikes based on correlation with current cluster templates before doing binary pursuit
         (
-            crossings,
-            neuron_labels,
-            valid_inds,
-        ) = spikesorting_fullpursuit.alignment.alignment.align_events_with_template(
+            cc_clip_width_s,
+            clip_width_s,
+        ) = spikesorting_fullpursuit.alignment.alignment.double_clip_width(
+            settings["clip_width"],
+            settings["sampling_rate"],
+        )
+
+        clips, valid_inds = get_singlechannel_clips(
             item_dict,
             voltage[chan, :],
-            neuron_labels,
             crossings,
-            clip_width_s=settings["clip_width"],
+            clip_width_s=cc_clip_width_s,
+        )
+        crossings = crossings[valid_inds]
+        neuron_labels = neuron_labels[valid_inds]
+
+        crossings = (
+            spikesorting_fullpursuit.alignment.alignment.align_events_with_template(
+                clips,
+                neuron_labels,
+                crossings,
+                clip_width_s=settings["clip_width"],
+                sampling_rate=settings["sampling_rate"],
+            )
         )
 
         if settings["verbose"]:
@@ -1173,18 +1203,35 @@ def initial_channel_sort(
 
         if settings["sort_peak_clips_only"]:
             (
-                crossings,
-                neuron_labels,
-                _,
-            ) = spikesorting_fullpursuit.alignment.alignment.align_events_with_template(
-                item_dict,
-                voltage[chan, :],
-                neuron_labels,
-                crossings,
-                clip_width_s=settings["clip_width"],
+                cc_clip_width_s,
+                clip_width_s,
+            ) = spikesorting_fullpursuit.alignment.alignment.double_clip_width(
+                settings["clip_width"],
+                settings["sampling_rate"],
             )
 
-            window, clip_width_s = time_window_to_samples(settings["clip_width"], settings['sampling_rate'])
+            clips, valid_inds = get_singlechannel_clips(
+                item_dict,
+                voltage[chan, :],
+                crossings,
+                clip_width_s=cc_clip_width_s,
+            )
+            crossings = crossings[valid_inds]
+            neuron_labels = neuron_labels[valid_inds]
+
+            crossings = (
+                spikesorting_fullpursuit.alignment.alignment.align_events_with_template(
+                    clips,
+                    neuron_labels,
+                    crossings,
+                    clip_width_s=settings["clip_width"],
+                    sampling_rate=settings["sampling_rate"],
+                )
+            )
+
+            window, clip_width_s = time_window_to_samples(
+                settings["clip_width"], settings["sampling_rate"]
+            )
             clips, valid_inds = get_singlechannel_clips(
                 item_dict,
                 voltage[chan, :],

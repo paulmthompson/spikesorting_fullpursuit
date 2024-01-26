@@ -9,11 +9,11 @@ from spikesorting_fullpursuit.processing.conversions import time_window_to_sampl
 
 
 def align_events_with_template(
-    probe_dict,
-    chan_voltage,
+    clips,
     neuron_labels,
     event_indices,
     clip_width_s,
+    sampling_rate,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Takes the input data for ONE channel and computes the cross correlation
@@ -23,19 +23,13 @@ def align_events_with_template(
     used to input into final sorting, as in cluster sharpening.
 
     Args:
-        item_dict = {'sampling_rate',
-                     'n_samples',
-                     'thresholds': 1D numpy array of thresholds for each channel
-                     'v_dtype',
-                     'ID',
-                     'memmap_dir',
-                     'memmap_fID'
-        chan_voltage: 1D numpy array of voltage values for single channel
+        clips:
         neuron_labels: 1D ndarray of dtype int64
             Numerical labels indicating the membership of
             each event_indices (spike clip index) as unique neuron.
         event_indices: 1D numpy array of indices of threshold crossings
         clip_width_s: list of two floats, time window in seconds to align
+        sampling_rate:
 
     Returns:
         event_indices: 1D numpy array of indices of threshold crossings
@@ -44,31 +38,15 @@ def align_events_with_template(
             which of event indices are valid from input
     """
 
-    sampling_rate = probe_dict["sampling_rate"]
-
-    window, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
-    # Create clips twice as wide as current clip width, IN SAMPLES, for better cross corr
-    cc_clip_width = [0, 0]
-    cc_clip_width[0] = 2 * window[0] / sampling_rate
-    cc_clip_width[1] = 2 * (window[1] - 1) / sampling_rate
     # Find indices within extra wide clips that correspond to the original clipwidth for template
-    temp_index = [0, 0]
-    temp_index[0] = -1 * min(int(round(clip_width_s[0] * sampling_rate)), 0)
-    temp_index[1] = (
-        2 * temp_index[0] + max(int(round(clip_width_s[1] * sampling_rate)), 1) + 1
+    original_clip_width_indexes = [0, 0]
+    original_clip_width_indexes[0] = -1 * min(int(round(clip_width_s[0] * sampling_rate)), 0)
+    original_clip_width_indexes[1] = (
+        2 * original_clip_width_indexes[0] + max(int(round(clip_width_s[1] * sampling_rate)), 1) + 1
     )  # Add one so that last element is included
 
-    clips, valid_inds = get_singlechannel_clips(
-        probe_dict,
-        chan_voltage,
-        event_indices,
-        clip_width_s=cc_clip_width,
-    )
-    event_indices = event_indices[valid_inds]
-    neuron_labels = neuron_labels[valid_inds]
-
     templates, labels = calculate_templates(
-        clips[:, temp_index[0] : temp_index[1]], neuron_labels
+        clips[:, original_clip_width_indexes[0] : original_clip_width_indexes[1]], neuron_labels
     )
 
     # First, align all clips with their own template
@@ -78,9 +56,18 @@ def align_events_with_template(
             templates[np.nonzero(labels == neuron_labels[c])[0][0]],
             mode="valid",
         )
-        event_indices[c] += np.argmax(cross_corr) - int(temp_index[0])
+        event_indices[c] += np.argmax(cross_corr) - int(original_clip_width_indexes[0])
 
-    return event_indices, neuron_labels, valid_inds
+    return event_indices
+
+
+def double_clip_width(clip_width_s, sampling_rate):
+    window, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
+    # Create clips twice as wide as current clip width, IN SAMPLES, for better cross corr
+    cc_clip_width = [0, 0]
+    cc_clip_width[0] = 2 * window[0] / sampling_rate
+    cc_clip_width[1] = 2 * (window[1] - 1) / sampling_rate
+    return cc_clip_width, clip_width_s
 
 
 def align_events_with_best_template(
