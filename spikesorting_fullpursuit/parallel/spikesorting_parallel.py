@@ -856,6 +856,8 @@ def spike_sort_item_parallel(
         if isinstance(clips, np.memmap):
             clips._mmap.close()
             del clips
+
+        #Get clips from all channels
         (
             clips,
             valid_event_indices,

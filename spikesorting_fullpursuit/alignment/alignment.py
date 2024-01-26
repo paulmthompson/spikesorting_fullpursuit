@@ -9,12 +9,12 @@ from spikesorting_fullpursuit.processing.conversions import time_window_to_sampl
 
 
 def align_events_with_template(
-    clips,
+    single_channel_clips,
     neuron_labels,
     event_indices,
     clip_width_s,
     sampling_rate,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> np.ndarray:
     """
     Takes the input data for ONE channel and computes the cross correlation
     of each spike with each template on the channel USING SINGLE CHANNEL CLIPS
@@ -23,7 +23,7 @@ def align_events_with_template(
     used to input into final sorting, as in cluster sharpening.
 
     Args:
-        clips:
+        single_channel_clips:
         neuron_labels: 1D ndarray of dtype int64
             Numerical labels indicating the membership of
             each event_indices (spike clip index) as unique neuron.
@@ -33,9 +33,6 @@ def align_events_with_template(
 
     Returns:
         event_indices: 1D numpy array of indices of threshold crossings
-        neuron_labels: 1D numpy array of neuron labels
-        valid_inds: 1D numpy array of booleans, which specify
-            which of event indices are valid from input
     """
 
     # Find indices within extra wide clips that correspond to the original clipwidth for template
@@ -46,13 +43,13 @@ def align_events_with_template(
     )  # Add one so that last element is included
 
     templates, labels = calculate_templates(
-        clips[:, original_clip_width_indexes[0] : original_clip_width_indexes[1]], neuron_labels
+        single_channel_clips[:, original_clip_width_indexes[0]: original_clip_width_indexes[1]], neuron_labels
     )
 
     # First, align all clips with their own template
-    for c in range(0, clips.shape[0]):
+    for c in range(0, single_channel_clips.shape[0]):
         cross_corr = np.correlate(
-            clips[c, :],
+            single_channel_clips[c, :],
             templates[np.nonzero(labels == neuron_labels[c])[0][0]],
             mode="valid",
         )
@@ -146,11 +143,11 @@ def align_events_with_best_template(
 
 
 def align_templates(
-    clips,
+    single_channel_clips,
     event_indices,
     neuron_labels,
     window,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> np.ndarray:
     """
     Aligns templates to each other and shift their event indices accordingly.
 
@@ -160,7 +157,7 @@ def align_templates(
     absolute value is centered on the clip width.
 
     Args:
-        clips:
+        single_channel_clips:
         event_indices: 1D numpy array of indices of threshold crossings
         neuron_labels: 1D ndarray of dtype int64
             Numerical labels indicating the membership of
@@ -172,7 +169,7 @@ def align_templates(
     """
 
     window = np.abs(window)
-    templates, labels = calculate_templates(clips, neuron_labels)
+    templates, labels = calculate_templates(single_channel_clips, neuron_labels)
 
     for t_ind in range(0, len(templates)):
         t = templates[t_ind]
@@ -191,7 +188,7 @@ def align_templates(
 
 
 def wavelet_align_events(
-    clips,
+    single_channel_clips,
     event_indices,
     window,
     band_width,
@@ -205,7 +202,7 @@ def wavelet_align_events(
     used to input into final sorting, as in cluster sharpening.
 
     Args:
-        clips: SINGLE CHANNEL clips
+        single_channel_clips: SINGLE CHANNEL clips
         event_indices: 1D numpy array of indices of threshold crossings
         window: Tuple containing pre and post window sizes in samples
         band_width: Frequency band of bandpass filter
@@ -259,11 +256,11 @@ def wavelet_align_events(
         temp_scales.append(central_template)
 
     # Align all waves on the mexican hat central template
-    for c in range(0, clips.shape[0]):
+    for c in range(0, single_channel_clips.shape[0]):
         best_peak = -np.inf
         # First find the best frequency (here 'template') for this clip
         for temp_ind in range(0, len(temp_scales)):
-            cross_corr = np.convolve(clips[c, :], temp_scales[temp_ind], mode="full")
+            cross_corr = np.convolve(single_channel_clips[c, :], temp_scales[temp_ind], mode="full")
             max_ind = np.argmax(cross_corr)
             min_ind = np.argmin(cross_corr)
 

@@ -329,7 +329,12 @@ def get_singlechannel_clips(
     return spike_clips, valid_event_indices
 
 
-def check_edge_cases(event_indices, n_samples, valid_event_indices, window):
+def check_edge_cases(
+    event_indices,
+    n_samples,
+    valid_event_indices,
+    window,
+):
     start_ind = validate_first_indices(event_indices, 0, valid_event_indices, window)
     stop_ind = validate_last_indices(
         event_indices, n_samples, valid_event_indices, window
