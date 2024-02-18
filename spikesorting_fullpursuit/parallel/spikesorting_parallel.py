@@ -10,8 +10,10 @@ import spikesorting_fullpursuit.processing.clip_utils
 import spikesorting_fullpursuit.processing.conversions
 import spikesorting_fullpursuit.threshold.threshold
 from spikesorting_fullpursuit.dim_reduce.pca import branch_pca_2_0
-from spikesorting_fullpursuit.parallel.segment import get_segment_onsets_and_offsets, \
-    adjust_segment_duration_and_overlap
+from spikesorting_fullpursuit.parallel.segment import (
+    get_segment_onsets_and_offsets,
+    adjust_segment_duration_and_overlap,
+)
 from spikesorting_fullpursuit.threshold.threshold import (
     single_thresholds,
     single_thresholds_and_samples,
@@ -766,39 +768,17 @@ def spike_sort_item_parallel(
         crossings = segment_parallel.keep_valid_inds([crossings], valid_event_indices)
 
         if settings["sort_peak_clips_only"]:
-            keep_clips = clip_utils.keep_max_on_main(clips, curr_chan_inds)
-            crossings = crossings[keep_clips]
-            if settings["use_memmap"]:
-                # Need to recompute clips here because we can't get a memmap view
-                if isinstance(clips, np.memmap):
-                    clips._mmap.close()
-                    del clips
-                (
-                    clips,
-                    valid_event_indices,
-                ) = spikesorting_fullpursuit.processing.clip_utils.get_clips(
-                    item_dict,
-                    voltage,
-                    neighbors,
-                    crossings,
-                    clip_width_s=settings["clip_width"],
-                    use_memmap=settings["use_memmap"],
-                )
-                crossings = segment_parallel.keep_valid_inds(
-                    [crossings], valid_event_indices
-                )
-            else:
-                clips = clips[keep_clips, :]
-            curr_num_clusters, n_per_cluster = np.unique(
-                neuron_labels, return_counts=True
+
+            clips, crossings = remove_clips_without_max_on_current_channel(
+                clips,
+                crossings,
+                curr_chan_inds,
+                item_dict,
+                neighbors,
+                neuron_labels,
+                settings,
+                voltage,
             )
-            if settings["verbose"]:
-                print(
-                    "After keep max on main removed",
-                    np.count_nonzero(~keep_clips),
-                    "clips",
-                    flush=True,
-                )
 
         if crossings.size == 0:
             exit_type = "No crossings over threshold."
@@ -858,7 +838,7 @@ def spike_sort_item_parallel(
             clips._mmap.close()
             del clips
 
-        #Get clips from all channels
+        # Get clips from all channels
         (
             clips,
             valid_event_indices,
@@ -1105,6 +1085,67 @@ def spike_sort_item_parallel(
             raise  # Reraise any exceptions in test mode only
     finally:
         wrap_up()
+
+
+def remove_clips_without_max_on_current_channel(
+    clips,
+    crossings,
+    curr_chan_inds,
+    item_dict,
+    neighbors,
+    neuron_labels,
+    settings,
+    voltage,
+):
+    """
+
+
+    Parameters
+    ----------
+    clips
+    crossings
+    curr_chan_inds
+    item_dict
+    neighbors
+    neuron_labels
+    settings
+    voltage
+
+    Returns
+    -------
+    clips
+    crossings
+    """
+    keep_clips = clip_utils.keep_max_on_main(clips, curr_chan_inds)
+    crossings = crossings[keep_clips]
+    if settings["use_memmap"]:
+        # Need to recompute clips here because we can't get a memmap view
+        if isinstance(clips, np.memmap):
+            clips._mmap.close()
+            del clips
+        (
+            clips,
+            valid_event_indices,
+        ) = spikesorting_fullpursuit.processing.clip_utils.get_clips(
+            item_dict,
+            voltage,
+            neighbors,
+            crossings,
+            clip_width_s=settings["clip_width"],
+            use_memmap=settings["use_memmap"],
+        )
+        crossings = segment_parallel.keep_valid_inds([crossings], valid_event_indices)
+    else:
+        clips = clips[keep_clips, :]
+    curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
+    if settings["verbose"]:
+        print(
+            "After keep max on main removed",
+            np.count_nonzero(~keep_clips),
+            "clips",
+            flush=True,
+        )
+    return clips, crossings
 
 
 def calculate_min_cluster_size(item_dict, settings):
