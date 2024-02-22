@@ -6,6 +6,26 @@ from spikesorting_fullpursuit.processing.conversions import time_window_to_sampl
 from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 
 
+"""
+clips are waveforms extracted from voltage traces (unit of samples of time)
+
+single_channel_clips is a numpy array with shape (events x clip_width_samples)
+
+multi_channel_clips is a numpy array with shape (events x clip_width_samples*channels)
+    The first part of each column is the complete waveform from channel 1, then channel
+    2, etc etc for each channel in list of "neighbors"
+
+The width of the clip in samples is usually called "window", which is a tuple
+where the first value is the number of pre-threshold samples and the second is the
+number of post-threshold samples
+
+The width of the clip in seconds is clip_width_s, where the first value is the
+pre-threshold seconds and the second value is the number of post
+threshold time in seconds
+
+
+"""
+
 def minimal_redundancy_template_order(
     spikes,
     templates,
@@ -422,13 +442,13 @@ def get_clips(
         check_valid:
 
     Returns:
-        spike_clips: waveforms for each event in 2D array
-            (events x window_samples)
+        spike_clips: np.ndarray of shape (events x window_samples)
+            waveforms for each event in 2D array
             This can be either a numpy array or a memmap object
             The first dimension has length equal to the number of *VALID* indices,
-            which is not necessarily the length of event_indices
-        valid_event_indices: np.ndarray of booleans, which specify
-            which of event indices are valid
+            which is not necessarily the length of event_indices input
+        valid_event_indices: np.ndarray of booleans
+            which specify which of event indices are valid
     """
     if event_indices.ndim > 1:
         raise ValueError("Event_indices must be one dimensional array of indices")
@@ -513,17 +533,48 @@ def get_clips(
 
 
 def get_windows_and_indices(
-    clip_width_s,
-    sampling_rate,
-    channel,
-    neighbors,
+    clip_width_s: list,
+    sampling_rate_hz: int,
+    channel: int,
+    neighbors: np.ndarray,
 ):
     """
     Computes some basic info used in many functions about how clips are
     are formatted and provides window indices and clip indices.
+
+    Parameters
+    ----------
+    clip_width_s: list
+        Two element list specifying in seconds the pre threshold (negative) and
+        post threshold values of clips.
+    sampling_rate_hz: int
+        sampling rate of each channel
+    channel : int
+        channel of interest
+    neighbors: np.ndarray of int
+        Array of neighbors for channel of interest. Usually in
+        numerical order (first channel is not necessarily channel
+        of interest)
+
+    Returns
+    -------
+    clip_width_s: list
+        Two element list specifying in seconds the pre threshold (negative) and
+        post threshold values of clips.
+    chan_neighbor_ind: int
+        position of channel of interest in numpy array of neighboring channels
+    curr_chan_win: list[int]
+        Two element list specifying in samples the pre threshold (negative) and
+        post threshold values of clips.
+    samples_per_chan: int
+        total number of samples in clip (clip width)
+    curr_chan_inds: np.ndarray
+        In each multichannel clip, these are the indices of the single
+        channel of interest clip
+
     """
 
-    curr_chan_win, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate)
+    curr_chan_win, clip_width_s = time_window_to_samples(clip_width_s, sampling_rate_hz)
     chan_neighbor_ind = next(
         (idx[0] for idx, val in np.ndenumerate(neighbors) if val == channel), None
     )
