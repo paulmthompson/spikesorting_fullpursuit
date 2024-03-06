@@ -1139,6 +1139,7 @@ def remove_clips_without_max_on_current_channel(
         crossings = segment_parallel.keep_valid_inds([crossings], valid_event_indices)
     else:
         multi_channel_clips = multi_channel_clips[keep_clips, :]
+
     curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
     if settings["verbose"]:
         print(
@@ -1206,8 +1207,9 @@ def initial_channel_sort(
 
     Parameters
     ----------
-    chan
-    multi_channel_clips
+    chan: int
+        current channel of interest (ID of voltage channel)
+    multi_channel_clips: 1
     crossings
     curr_chan_inds
     item_dict
