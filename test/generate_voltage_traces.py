@@ -45,14 +45,16 @@ def generate_voltage_traces():
     refractory_win = 1.5e-3  # Set refractory period at 1.5 ms
     # Generate the test dataset by choosing spike times and adding them according to the specified properties
     test_data.gen_test_dataset(
-        firing_rates, template_inds, chan_scaling_factors, refractory_win
+        firing_rates,
+        template_inds,
+        chan_scaling_factors,
+        refractory_win,
     )
 
     return test_data.Probe.voltage, test_data.actual_IDs
 
 
 def generate_2d_voltage_array():
-
     voltages, timestamps = generate_voltage_traces()
 
     voltages = np.float32(voltages)
