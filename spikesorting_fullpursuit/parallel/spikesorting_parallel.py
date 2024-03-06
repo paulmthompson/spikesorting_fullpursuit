@@ -488,7 +488,7 @@ def print_process_info(title):
 
 
 def check_spike_alignment(
-    clips,
+    multi_channel_clips,
     event_indices,
     neuron_labels,
     curr_chan_inds,
@@ -497,13 +497,32 @@ def check_spike_alignment(
     """
     Wavelet alignment can bounce back and forth based on noise blips if
     the spike waveform is nearly symmetric in peak/valley. This is all done
-    in memmory without memmaping because selection and copies is complex.
+    in memory without memmap-ing because selection and copies is complex.
+
+    Parameters
+    ----------
+    multi_channel_clips: np.ndarray | memmap
+        2D matrix of clips where first dimension is length of event_indices
+        and second dimension is clip for each channel
+    event_indices: np.ndarray
+        positions of clips in samples
+    neuron_labels: np.ndarray[int]
+        array of length of event indexes where each neuron label is the ID
+        of the cluster it is currently assigned to
+    curr_chan_inds: np.ndarray
+        In each multichannel clip, these are the indices of the single
+        channel of interest clip
+    settings
+
+    Returns
+    -------
+
     """
     (
         templates,
         labels,
     ) = spikesorting_fullpursuit.processing.clip_utils.calculate_templates(
-        clips[:, curr_chan_inds[0] : curr_chan_inds[1] + 1], neuron_labels
+        multi_channel_clips[:, curr_chan_inds[0]: curr_chan_inds[1] + 1], neuron_labels
     )
     any_merged = False
     unit_inds_to_check = [x for x in range(0, len(templates))]
@@ -528,8 +547,8 @@ def check_spike_alignment(
         # Get clips for best pair and optimally align them with each other
         select_n_1 = neuron_labels == labels[best_pair_inds[0]]
         select_n_2 = neuron_labels == labels[best_pair_inds[1]]
-        clips_1 = clips[select_n_1, :][:, curr_chan_inds]
-        clips_2 = clips[select_n_2, :][:, curr_chan_inds]
+        clips_1 = multi_channel_clips[select_n_1, :][:, curr_chan_inds]
+        clips_2 = multi_channel_clips[select_n_2, :][:, curr_chan_inds]
 
         # Align and truncate clips for best match pair
         if best_shift > 0:
@@ -1104,12 +1123,19 @@ def remove_clips_without_max_on_current_channel(
 
     Parameters
     ----------
-    multi_channel_clips
-    crossings
-    curr_chan_inds
+    multi_channel_clips: np.ndarray | memmap
+        2D matrix of clips where first dimension is length of event_indices
+        and second dimension is clip for each channel
+    crossings: np.ndarray
+        positions of clips in samples
+    curr_chan_inds: np.ndarray
+        In each multichannel clip, these are the indices of the single
+        channel of interest clip
     item_dict
     neighbors
-    neuron_labels
+    neuron_labels: np.ndarray[int]
+        array of length of event indexes where each neuron label is the ID
+        of the cluster it is currently assigned to
     settings
     voltage
 
@@ -1209,9 +1235,14 @@ def initial_channel_sort(
     ----------
     chan: int
         current channel of interest (ID of voltage channel)
-    multi_channel_clips: 1
-    crossings
-    curr_chan_inds
+    multi_channel_clips: np.ndarray | memmap
+        2D matrix of clips where first dimension is length of event_indices
+        and second dimension is clip for each channel
+    crossings:
+        positions of clips in samples
+    curr_chan_inds: np.ndarray
+        In each multichannel clip, these are the indices of the single
+        channel of interest clip
     item_dict
     neighbors
     settings

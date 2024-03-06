@@ -383,6 +383,19 @@ def check_edge_cases(
     valid_event_indices,
     window,
 ):
+    """
+
+    Parameters
+    ----------
+    event_indices
+    n_samples
+    valid_event_indices
+    window
+
+    Returns
+    -------
+
+    """
     start_ind = validate_first_indices(
         event_indices,
         0,
@@ -404,6 +417,19 @@ def validate_last_indices(
     valid_event_indices,
     window,
 ):
+    """
+
+    Parameters
+    ----------
+    event_indices
+    n_samples
+    valid_event_indices
+    window
+
+    Returns
+    -------
+
+    """
     stop_ind = event_indices.shape[0] - 1
     n = event_indices[stop_ind]
     while n + window[1] > n_samples:
@@ -424,6 +450,19 @@ def validate_first_indices(
     valid_event_indices,
     window,
 ):
+    """
+
+    Parameters
+    ----------
+    event_indices
+    start_ind
+    valid_event_indices
+    window
+
+    Returns
+    -------
+
+    """
     n = event_indices[start_ind]
     while n + window[0] < 0:
         valid_event_indices[start_ind] = False
