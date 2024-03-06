@@ -62,7 +62,7 @@ if __name__ == '__main__':
             'get_adjusted_clips': False,
             'max_binary_pursuit_clip_width_factor': 1.0,
             'verbose': True,
-            'test_flag': False,
+            'test_flag': True,
             'log_dir': log_dir,
             }
 
