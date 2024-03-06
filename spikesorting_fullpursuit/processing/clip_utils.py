@@ -23,8 +23,13 @@ The width of the clip in seconds is clip_width_s, where the first value is the
 pre-threshold seconds and the second value is the number of post
 threshold time in seconds
 
+event_indices represent the sample of the "center" of the clip in the voltage trace
+
+an event index may have a corresponding label, where it is assigned to a unique 
+neuron
 
 """
+
 
 def minimal_redundancy_template_order(
     spikes,
@@ -112,7 +117,10 @@ def compute_template_projection(
     for ind, l in enumerate(unique_labels):
         templates[ind, :] = np.mean(clips[labels == l, :], axis=0)
     templates = minimal_redundancy_template_order(
-        clips, templates, max_templates=max_templates, first_template_ind=u_counts
+        clips,
+        templates,
+        max_templates=max_templates,
+        first_template_ind=u_counts,
     )
     # Keep at most the max_templates templates
     templates = templates[0 : min(templates.shape[0], max_templates), :]
@@ -142,10 +150,25 @@ def keep_max_on_main(clips, main_chan_inds):
     return keep_clips
 
 
-def cleanup_clusters(clips, neuron_labels):
-    keep_clips = np.ones(clips.shape[0], dtype="bool")
+def cleanup_clusters(multi_channel_clips, neuron_labels):
+    """
 
-    total_SSE_clips = np.sum(clips**2, axis=1)
+    Parameters
+    ----------
+    multi_channel_clips: np.ndarray | memmap
+        2D matrix of clips where first dimension is length of event_indices
+        and second dimension is clip for each channel
+    neuron_labels: np.ndarray[int]
+        array of length of event indexes where each neuron label is the ID
+        of the cluster it is currently assigned to
+    Returns
+    -------
+    np.ndarray[bool]
+        boolean array of indexes to keep
+    """
+    keep_clips = np.ones(multi_channel_clips.shape[0], dtype="bool")
+
+    total_SSE_clips = np.sum(multi_channel_clips**2, axis=1)
     total_mean_SSE_clips = np.mean(total_SSE_clips)
     total_STD_clips = np.std(total_SSE_clips)
     overall_deviant = np.logical_or(
@@ -157,14 +180,16 @@ def cleanup_clusters(clips, neuron_labels):
     for nl in np.unique(neuron_labels):
         select_nl = neuron_labels == nl
         select_nl[overall_deviant] = False
-        nl_template = np.mean(clips[select_nl, :], axis=0)
-        nl_SSE_clips = np.sum((clips[select_nl, :] - nl_template) ** 2, axis=1)
+        nl_template = np.mean(multi_channel_clips[select_nl, :], axis=0)
+        nl_SSE_clips = np.sum(
+            (multi_channel_clips[select_nl, :] - nl_template) ** 2, axis=1
+        )
         nl_mean_SSE_clips = np.mean(nl_SSE_clips)
         nl_STD_clips = np.std(nl_SSE_clips)
-        for nl_ind in range(0, clips.shape[0]):
+        for nl_ind in range(0, multi_channel_clips.shape[0]):
             if not select_nl[nl_ind]:
                 continue
-            curr_SSE = np.sum((clips[nl_ind, :] - nl_template) ** 2)
+            curr_SSE = np.sum((multi_channel_clips[nl_ind, :] - nl_template) ** 2)
             if np.logical_or(
                 curr_SSE > nl_mean_SSE_clips + 2 * nl_STD_clips,
                 curr_SSE < nl_mean_SSE_clips - 2 * nl_STD_clips,
@@ -294,7 +319,10 @@ def get_singlechannel_clips(
     valid_event_indices = np.ones(event_indices.shape[0], dtype="bool")
 
     start_ind, stop_ind = check_edge_cases(
-        event_indices, n_samples, valid_event_indices, window
+        event_indices,
+        n_samples,
+        valid_event_indices,
+        window,
     )
 
     if np.all(valid_event_indices == False):
@@ -355,9 +383,17 @@ def check_edge_cases(
     valid_event_indices,
     window,
 ):
-    start_ind = validate_first_indices(event_indices, 0, valid_event_indices, window)
+    start_ind = validate_first_indices(
+        event_indices,
+        0,
+        valid_event_indices,
+        window,
+    )
     stop_ind = validate_last_indices(
-        event_indices, n_samples, valid_event_indices, window
+        event_indices,
+        n_samples,
+        valid_event_indices,
+        window,
     )
     return start_ind, stop_ind
 
@@ -470,7 +506,10 @@ def get_clips(
     start_ind = 0
     if check_valid:
         start_ind, stop_ind = check_edge_cases(
-            event_indices, n_samples, valid_event_indices, window
+            event_indices,
+            n_samples,
+            valid_event_indices,
+            window,
         )
 
         if np.all(valid_event_indices == False):
