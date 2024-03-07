@@ -1132,7 +1132,10 @@ def remove_clips_without_max_on_current_channel(
         In each multichannel clip, these are the indices of the single
         channel of interest clip
     item_dict
-    neighbors
+    neighbors: np.ndarray of int
+        Array of neighbors for channel of interest. Usually in
+        numerical order (first channel is not necessarily channel
+        of interest)
     neuron_labels: np.ndarray[int]
         array of length of event indexes where each neuron label is the ID
         of the cluster it is currently assigned to
@@ -1244,7 +1247,10 @@ def initial_channel_sort(
         In each multichannel clip, these are the indices of the single
         channel of interest clip
     item_dict
-    neighbors
+    neighbors: np.ndarray of int
+        Array of neighbors for channel of interest. Usually in
+        numerical order (first channel is not necessarily channel
+        of interest)
     settings
     voltage
 
