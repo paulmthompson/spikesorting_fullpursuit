@@ -97,7 +97,7 @@ def spike_sorting_settings_parallel(**kwargs):
 
     for k in kwargs.keys():
         if k not in settings:
-            raise TypeError("Unknown parameter key {0}.".format(k))
+            raise TypeError(f"Unknown parameter key {k}.")
         settings[k] = kwargs[k]
 
     # Check validity of settings
@@ -125,9 +125,8 @@ def spike_sorting_settings_parallel(**kwargs):
         settings["artifact_tol"] = np.abs(settings["artifact_tol"])
     except:
         raise ValueError(
-            "Setting 'artifact_tol' must be convertable to a positive numerical integer, not {0}.".format(
-                settings["artifact_tol"]
-            )
+            f"Setting 'artifact_tol' must be convertable to a positive numerical integer, \
+            not {settings['artifact_tol']}."
         )
 
     # Check validity of most other settings
@@ -158,22 +157,20 @@ def spike_sorting_settings_parallel(**kwargs):
                 else:
                     settings[key] = False
                 print(
-                    "Input setting '{0}' was converted to \
-                        boolean value: ".format(
-                        key
-                    ),
+                    f"Input setting '{key}' was converted to \
+                        boolean value: ",
                     settings[key],
                 )
         if key in ["segment_duration", "segment_overlap"]:
             # Note actual relative values for overlap are checked in main function
             if settings[key] <= 0:
                 raise ValueError(
-                    "Input setting '{0}' must be a postive number".format(key)
+                    f"Input setting '{key}' must be a postive number"
                 )
         if key in ["check_components", "max_components"]:
             if settings[key] <= 0 or type(settings[key]) != int:
                 raise ValueError(
-                    "Input setting '{0}' must be a postive integer".format(key)
+                    f"Input setting '{key}' must be a postive integer"
                 )
         if key in [
             "min_firing_rate",
@@ -182,10 +179,8 @@ def spike_sorting_settings_parallel(**kwargs):
         ]:
             if settings[key] < 0:
                 print(
-                    "Input setting '{0}' was invalid and \
-                        converted to zero".format(
-                        key
-                    )
+                    f"Input setting '{key}' was invalid and \
+                        converted to zero"
                 )
         if key in ["sigma_bp_CI"]:
             if settings[key] is None:
@@ -522,7 +517,7 @@ def check_spike_alignment(
         templates,
         labels,
     ) = spikesorting_fullpursuit.processing.clip_utils.calculate_templates(
-        multi_channel_clips[:, curr_chan_inds[0]: curr_chan_inds[1] + 1], neuron_labels
+        multi_channel_clips[:, curr_chan_inds[0] : curr_chan_inds[1] + 1], neuron_labels
     )
     any_merged = False
     unit_inds_to_check = [x for x in range(0, len(templates))]
@@ -650,7 +645,7 @@ def spike_sort_item_parallel(
         try:
             clip_fname = os.path.join(
                 settings["memmap_dir"],
-                "{0}clips_{1}.bin".format(settings["memmap_fID"], str(work_item["ID"])),
+                f"{settings['memmap_fID']}clips_{str(work_item['ID'])}.bin",
             )
             if os.path.exists(clip_fname):
                 os.remove(clip_fname)
@@ -668,9 +663,9 @@ def spike_sort_item_parallel(
             move_stdout_to_logdir(settings, work_item)
 
             print_process_info(
-                "spike_sort_item_parallel item {0}, channel {1}, segment {2}.".format(
-                    work_item["ID"], work_item["channel"], work_item["seg_number"] + 1
-                )
+                f"spike_sort_item_parallel item {work_item['ID']}, \
+                channel {work_item['channel']}, \
+                segment {work_item['seg_number'] + 1}."
             )
 
         # Setup threads and affinity based on use_cpus if not on mac OS
@@ -1131,7 +1126,8 @@ def remove_clips_without_max_on_current_channel(
     curr_chan_inds: np.ndarray
         In each multichannel clip, these are the indices of the single
         channel of interest clip
-    item_dict
+    item_dict:
+
     neighbors: np.ndarray of int
         Array of neighbors for channel of interest. Usually in
         numerical order (first channel is not necessarily channel
@@ -1139,8 +1135,10 @@ def remove_clips_without_max_on_current_channel(
     neuron_labels: np.ndarray[int]
         array of length of event indexes where each neuron label is the ID
         of the cluster it is currently assigned to
-    settings
-    voltage
+    settings:
+
+    voltage: np.ndarray
+        channel x segment_samples array of raw voltage values
 
     Returns
     -------
@@ -1246,13 +1244,16 @@ def initial_channel_sort(
     curr_chan_inds: np.ndarray
         In each multichannel clip, these are the indices of the single
         channel of interest clip
-    item_dict
+    item_dict:
+
     neighbors: np.ndarray of int
         Array of neighbors for channel of interest. Usually in
         numerical order (first channel is not necessarily channel
         of interest)
-    settings
-    voltage
+    settings:
+
+    voltage: np.ndarray
+        channel x segment_samples array of raw voltage values
 
     Returns
     -------
@@ -1274,9 +1275,7 @@ def initial_channel_sort(
         curr_chan_inds=np.arange(0, curr_chan_inds.size),
     )
     n_random = (
-        max(100, np.around(crossings.size / 100))
-        if settings["use_rand_init"]
-        else 0
+        max(100, np.around(crossings.size / 100)) if settings["use_rand_init"] else 0
     )
     neuron_labels = (
         spikesorting_fullpursuit.clustering.kmeanspp.initial_cluster_farthest(
@@ -1298,9 +1297,7 @@ def initial_channel_sort(
     )
 
     if settings["verbose"]:
-        curr_num_clusters, n_per_cluster = np.unique(
-            neuron_labels, return_counts=True
-        )
+        curr_num_clusters, n_per_cluster = np.unique(neuron_labels, return_counts=True)
         print(
             "After first sort",
             curr_num_clusters.size,
