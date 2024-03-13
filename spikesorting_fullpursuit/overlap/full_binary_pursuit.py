@@ -1,9 +1,15 @@
 import numpy as np
 from copy import copy, deepcopy
 from scipy.stats import norm
-from spikesorting_fullpursuit.overlap import neuron_separability, binary_pursuit_parallel
+from spikesorting_fullpursuit.overlap import (
+    neuron_separability,
+    binary_pursuit_parallel,
+)
 from spikesorting_fullpursuit.overlap.consolidate import SegSummary
-from spikesorting_fullpursuit.processing.clip_utils import calculate_robust_template, get_clips
+from spikesorting_fullpursuit.processing.clip_utils import (
+    calculate_robust_template,
+    get_clips,
+)
 from spikesorting_fullpursuit.parallel.segment_parallel import memmap_to_mem
 from spikesorting_fullpursuit.processing.conversions import time_window_to_samples
 from spikesorting_fullpursuit.c_cython import sort_cython
@@ -11,11 +17,8 @@ from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 
 
 def get_binary_pursuit_clip_width(
-        seg_w_items,
-        clips_dict,
-        voltage,
-        data_dict,
-        sort_info):
+    seg_w_items, clips_dict, voltage, data_dict, sort_info
+):
     """
     Determines a clip width to use for binary pursuit by asking how much
     the current clip width must be increased so that it returns near a median
@@ -23,141 +26,152 @@ def get_binary_pursuit_clip_width(
     sorting parameter max_binary_pursuit_clip_width_factor.
     """
     # Maximim factor by which the clip width can be increased
-    if sort_info['max_binary_pursuit_clip_width_factor'] <= 1.0:
+    if sort_info["max_binary_pursuit_clip_width_factor"] <= 1.0:
         # Do not use expanded clip widths, just return
         original_clip_starts = np.arange(
             0,
-            sort_info['n_samples_per_chan']*(sort_info['n_channels']),
-            sort_info['n_samples_per_chan'],
-            dtype=np.int64
-            )
+            sort_info["n_samples_per_chan"] * (sort_info["n_channels"]),
+            sort_info["n_samples_per_chan"],
+            dtype=np.int64,
+        )
         original_clip_stops = np.arange(
-            sort_info['n_samples_per_chan'],
-            (sort_info['n_samples_per_chan']+1)*sort_info['n_channels'],
-            sort_info['n_samples_per_chan'],
-            dtype=np.int64)
+            sort_info["n_samples_per_chan"],
+            (sort_info["n_samples_per_chan"] + 1) * sort_info["n_channels"],
+            sort_info["n_samples_per_chan"],
+            dtype=np.int64,
+        )
 
-        bp_cw_max = max(np.abs(sort_info['clip_width']))
-        bp_clip_width = [-1*bp_cw_max, bp_cw_max]
+        bp_cw_max = max(np.abs(sort_info["clip_width"]))
+        bp_clip_width = [-1 * bp_cw_max, bp_cw_max]
         return bp_clip_width, original_clip_starts, original_clip_stops
     # Start by building the set of all clips for all units in segment
     all_events = []
     for w_item in seg_w_items:
-        if w_item['ID'] in data_dict['results_dict'].keys():
-            if len(data_dict['results_dict'][w_item['ID']][0]) == 0:
+        if w_item["ID"] in data_dict["results_dict"].keys():
+            if len(data_dict["results_dict"][w_item["ID"]][0]) == 0:
                 # This work item found nothing (or raised an exception)
                 continue
-            all_events.append(data_dict['results_dict'][w_item['ID']][0])
+            all_events.append(data_dict["results_dict"][w_item["ID"]][0])
     if len(all_events) == 0:
         # No events found so just return input clip width
         original_clip_starts = np.arange(
             0,
-            sort_info['n_samples_per_chan']*(sort_info['n_channels']),
-            sort_info['n_samples_per_chan'],
-            dtype=np.int64
-            )
+            sort_info["n_samples_per_chan"] * (sort_info["n_channels"]),
+            sort_info["n_samples_per_chan"],
+            dtype=np.int64,
+        )
         original_clip_stops = np.arange(
-            sort_info['n_samples_per_chan'],
-            (sort_info['n_samples_per_chan']+1)*sort_info['n_channels'],
-            sort_info['n_samples_per_chan'],
-            dtype=np.int64)
+            sort_info["n_samples_per_chan"],
+            (sort_info["n_samples_per_chan"] + 1) * sort_info["n_channels"],
+            sort_info["n_samples_per_chan"],
+            dtype=np.int64,
+        )
         # Make clip_width symmetric
-        bp_cw_max = max(np.abs(sort_info['clip_width']))
-        bp_clip_width = [-1*bp_cw_max, bp_cw_max]
+        bp_cw_max = max(np.abs(sort_info["clip_width"]))
+        bp_clip_width = [-1 * bp_cw_max, bp_cw_max]
         return bp_clip_width, original_clip_starts, original_clip_stops
 
     all_events = np.hstack(all_events)
-    all_events.sort() # Must be sorted for get multichannel clips to work
+    all_events.sort()  # Must be sorted for get multichannel clips to work
     # Find the average clip for our max output clip width, double the original
-    bp_clip_width = [sort_info['max_binary_pursuit_clip_width_factor']*v for v in sort_info['clip_width']]
+    bp_clip_width = [
+        sort_info["max_binary_pursuit_clip_width_factor"] * v
+        for v in sort_info["clip_width"]
+    ]
     all_clips, valid_event_indices = get_clips(
         clips_dict,
         voltage,
         np.arange(0, voltage.shape[0]),
         all_events,
-        clip_width_s=bp_clip_width
-        )
+        clip_width_s=bp_clip_width,
+    )
     if np.count_nonzero(valid_event_indices) == 0:
         original_clip_starts = np.arange(
             0,
-            sort_info['n_samples_per_chan']*(sort_info['n_channels']),
-            sort_info['n_samples_per_chan'],
-            dtype=np.int64
-            )
+            sort_info["n_samples_per_chan"] * (sort_info["n_channels"]),
+            sort_info["n_samples_per_chan"],
+            dtype=np.int64,
+        )
         original_clip_stops = np.arange(
-            sort_info['n_samples_per_chan'],
-            (sort_info['n_samples_per_chan']+1)*sort_info['n_channels'],
-            sort_info['n_samples_per_chan'],
-            dtype=np.int64
-            )
+            sort_info["n_samples_per_chan"],
+            (sort_info["n_samples_per_chan"] + 1) * sort_info["n_channels"],
+            sort_info["n_samples_per_chan"],
+            dtype=np.int64,
+        )
         # Make clip_width symmetric
-        bp_cw_max = max(np.abs(sort_info['clip_width']))
-        bp_clip_width = [-1*bp_cw_max, bp_cw_max]
+        bp_cw_max = max(np.abs(sort_info["clip_width"]))
+        bp_clip_width = [-1 * bp_cw_max, bp_cw_max]
         return bp_clip_width, original_clip_starts, original_clip_stops
     mean_clip = np.mean(all_clips, axis=0)
-    bp_samples_per_chan = all_clips.shape[1] // sort_info['n_channels']
+    bp_samples_per_chan = all_clips.shape[1] // sort_info["n_channels"]
     first_indices = np.arange(
         0,
-        bp_samples_per_chan*(sort_info['n_channels']-1)+1,
+        bp_samples_per_chan * (sort_info["n_channels"] - 1) + 1,
         bp_samples_per_chan,
-        dtype=np.int64
-        )
+        dtype=np.int64,
+    )
     last_indices = np.arange(
-        bp_samples_per_chan-1,
-        bp_samples_per_chan*sort_info['n_channels']+1,
+        bp_samples_per_chan - 1,
+        bp_samples_per_chan * sort_info["n_channels"] + 1,
         bp_samples_per_chan,
-        dtype=np.int64
-        )
+        dtype=np.int64,
+    )
 
     # Randomly choose 10 seconds worth of time points
-    noise_sample_inds = np.random.choice(voltage.shape[1], 10*sort_info['sampling_rate'])
+    noise_sample_inds = np.random.choice(
+        voltage.shape[1], 10 * sort_info["sampling_rate"]
+    )
     median_noise = np.median(np.median(np.abs(voltage[:, noise_sample_inds]), axis=1))
     clip_end_tolerance = 0.05 * median_noise
 
     bp_chan_win_samples, _ = time_window_to_samples(
-        bp_clip_width,
-        sort_info['sampling_rate']
-        )
+        bp_clip_width, sort_info["sampling_rate"]
+    )
     chan_win_samples, _ = time_window_to_samples(
-        sort_info['clip_width'],
-        sort_info['sampling_rate']
-        )
+        sort_info["clip_width"], sort_info["sampling_rate"]
+    )
 
     # Find the most we can increase the first indices to
     # chan_win_samples[0] is negative, we want positve here
-    max_pre_samples = -1*bp_chan_win_samples[0] + chan_win_samples[0] # Don't shrink past original
+    max_pre_samples = (
+        -1 * bp_chan_win_samples[0] + chan_win_samples[0]
+    )  # Don't shrink past original
     while np.all(np.abs(mean_clip[first_indices]) < clip_end_tolerance):
         if first_indices[0] >= max_pre_samples:
             break
         first_indices += 1
 
     # This is what's left of bp_chan_win_samples after we moved
-    bp_clip_width[0] = -1 * (-1 * bp_chan_win_samples[0] - first_indices[0]) / sort_info['sampling_rate']
+    bp_clip_width[0] = (
+        -1
+        * (-1 * bp_chan_win_samples[0] - first_indices[0])
+        / sort_info["sampling_rate"]
+    )
 
     # Most we can decrease the last indices to
-    min_post_samples = (bp_samples_per_chan - bp_chan_win_samples[1]) + chan_win_samples[1] -1 # Don't shrink past original
+    min_post_samples = (
+        (bp_samples_per_chan - bp_chan_win_samples[1]) + chan_win_samples[1] - 1
+    )  # Don't shrink past original
     while np.all(np.abs(mean_clip[last_indices]) < clip_end_tolerance):
         if last_indices[0] <= min_post_samples:
             break
         last_indices -= 1
-    bp_clip_width[1] = (bp_chan_win_samples[1] - (bp_samples_per_chan - last_indices[0])) / sort_info['sampling_rate']
+    bp_clip_width[1] = (
+        bp_chan_win_samples[1] - (bp_samples_per_chan - last_indices[0])
+    ) / sort_info["sampling_rate"]
 
     # Compute the indices required to slice the new bp_clip_width clips back to
     # their original input sort_info['clip_width'] size
-    clip_start_ind = (-1*bp_chan_win_samples[0] + chan_win_samples[0]) - first_indices[0]
+    clip_start_ind = (
+        -1 * bp_chan_win_samples[0] + chan_win_samples[0]
+    ) - first_indices[0]
     clip_stop_ind = clip_start_ind + (chan_win_samples[1] - chan_win_samples[0])
-    clip_n = last_indices[0] - first_indices[0] # New expanded clip width
+    clip_n = last_indices[0] - first_indices[0]  # New expanded clip width
     original_clip_starts = np.arange(
-        clip_start_ind,
-        clip_n*(sort_info['n_channels']),
-        clip_n,
-        dtype=np.int64
-        )
+        clip_start_ind, clip_n * (sort_info["n_channels"]), clip_n, dtype=np.int64
+    )
     original_clip_stops = np.arange(
-        clip_stop_ind,
-        (clip_n+1)*sort_info['n_channels'],
-        clip_n,
-        dtype=np.int64
+        clip_stop_ind, (clip_n + 1) * sort_info["n_channels"], clip_n, dtype=np.int64
     )
     print(1, bp_chan_win_samples)
     print(2, chan_win_samples)
@@ -174,24 +188,25 @@ def get_binary_pursuit_clip_width(
     print(13, original_clip_stops)
     # Make clip_width symmetric
     bp_cw_max = max(np.abs(bp_clip_width))
-    bp_clip_width = [-1*bp_cw_max, bp_cw_max]
+    bp_clip_width = [-1 * bp_cw_max, bp_cw_max]
 
     return bp_clip_width, original_clip_starts, original_clip_stops
 
 
 def full_binary_pursuit(
-        work_items,
-        data_dict,
-        seg_number,
-        sort_info,
-        v_dtype,
-        overlap_ratio_threshold,
-        absolute_refractory_period,
-        kernels_path=None,
-        max_gpu_memory=None,
-        use_memmap=False,
-        output_clips=False):
-    """ 
+    work_items,
+    data_dict,
+    seg_number,
+    sort_info,
+    v_dtype,
+    overlap_ratio_threshold,
+    absolute_refractory_period,
+    kernels_path=None,
+    max_gpu_memory=None,
+    use_memmap=False,
+    output_clips=False,
+):
+    """
     This is the main function that runs binary pursuit. It first handles
     the unit and template consolidation and the removal of noise templates to
     create the final template set for binary pursuit derived from the input
@@ -201,68 +216,80 @@ def full_binary_pursuit(
     # Get numpy view of voltage for clips and binary pursuit
     if use_memmap:
         voltage_mmap = MemMapClose(
-            data_dict['seg_v_files'][seg_number][0],
-            dtype=data_dict['seg_v_files'][seg_number][1],
-            mode='r',
-            shape=data_dict['seg_v_files'][seg_number][2])
+            data_dict["seg_v_files"][seg_number][0],
+            dtype=data_dict["seg_v_files"][seg_number][1],
+            mode="r",
+            shape=data_dict["seg_v_files"][seg_number][2],
+        )
         voltage = memmap_to_mem(
-            voltage_mmap,
-            dtype=data_dict['seg_v_files'][seg_number][1])
+            voltage_mmap, dtype=data_dict["seg_v_files"][seg_number][1]
+        )
         if isinstance(voltage_mmap, np.memmap):
             voltage_mmap._mmap.close()
             del voltage_mmap
     else:
-        seg_volts_buffer = data_dict['segment_voltages'][seg_number][0]
-        seg_volts_shape = data_dict['segment_voltages'][seg_number][1]
-        voltage = np.frombuffer(seg_volts_buffer, dtype=v_dtype).reshape(seg_volts_shape)
+        seg_volts_buffer = data_dict["segment_voltages"][seg_number][0]
+        seg_volts_shape = data_dict["segment_voltages"][seg_number][1]
+        voltage = np.frombuffer(seg_volts_buffer, dtype=v_dtype).reshape(
+            seg_volts_shape
+        )
+
     all_chan_nbrs = np.arange(0, voltage.shape[0], dtype=np.int64)
-    original_clip_width = [s for s in sort_info['clip_width']]
-    original_n_samples_per_chan = copy(sort_info['n_samples_per_chan'])
+    original_clip_width = [s for s in sort_info["clip_width"]]
+    original_n_samples_per_chan = copy(sort_info["n_samples_per_chan"])
     # Max shift indices to check for binary pursuit overlaps
-    n_max_shift_inds = (original_n_samples_per_chan-1)
+    n_max_shift_inds = original_n_samples_per_chan - 1
 
     # Determine the set of work items for this segment
-    seg_w_items = [w for w in work_items if w['seg_number'] == seg_number]
+    seg_w_items = [w for w in work_items if w["seg_number"] == seg_number]
 
     # Make a dictionary with all info needed for get_clips
-    clips_dict = {'sampling_rate': sort_info['sampling_rate'],
-                  'n_samples': seg_w_items[0]['n_samples'],
-                  'v_dtype': v_dtype}
+    clips_dict = {
+        "sampling_rate": sort_info["sampling_rate"],
+        "n_samples": seg_w_items[0]["n_samples"],
+        "v_dtype": v_dtype,
+    }
 
     # Need to build this in format used for consolidate functions
     seg_data = []
     original_neighbors = []
     for w_item in seg_w_items:
-        if w_item['ID'] in data_dict['results_dict'].keys():
+        if w_item["ID"] in data_dict["results_dict"].keys():
             # Reset neighbors to all channels for full binary pursuit
-            original_neighbors.append(w_item['neighbors'])
-            w_item['neighbors'] = np.copy(all_chan_nbrs)
+            original_neighbors.append(w_item["neighbors"])
+            w_item["neighbors"] = np.copy(all_chan_nbrs)
 
-            if len(data_dict['results_dict'][w_item['ID']][0]) == 0:
+            if len(data_dict["results_dict"][w_item["ID"]][0]) == 0:
                 # This work item found nothing (or raised an exception)
-                seg_data.append([[], [], [], [], w_item['ID']])
+                seg_data.append([[], [], [], [], w_item["ID"]])
                 continue
             clips, _ = get_clips(
                 clips_dict,
                 voltage,
-                w_item['neighbors'],
-                data_dict['results_dict'][w_item['ID']][0],
-                clip_width_s=sort_info['clip_width'])
+                w_item["neighbors"],
+                data_dict["results_dict"][w_item["ID"]][0],
+                clip_width_s=sort_info["clip_width"],
+            )
 
             # Insert list of crossings, labels, clips, binary pursuit spikes
-            seg_data.append([
-                data_dict['results_dict'][w_item['ID']][0],
-                data_dict['results_dict'][w_item['ID']][1],
-                clips,
-                np.zeros(len(data_dict['results_dict'][w_item['ID']][0]), dtype="bool"),
-                w_item['ID']])
+            seg_data.append(
+                [
+                    data_dict["results_dict"][w_item["ID"]][0],
+                    data_dict["results_dict"][w_item["ID"]][1],
+                    clips,
+                    np.zeros(
+                        len(data_dict["results_dict"][w_item["ID"]][0]), dtype="bool"
+                    ),
+                    w_item["ID"],
+                ]
+            )
             if type(seg_data[-1][0][0]) == np.ndarray:
                 if seg_data[-1][0][0].size > 0:
                     # Adjust crossings for segment start time
-                    seg_data[-1][0][0] += w_item['index_window'][0]
+                    seg_data[-1][0][0] += w_item["index_window"][0]
         else:
             # This work item found nothing (or raised an exception)
-            seg_data.append([[], [], [], [], w_item['ID']])
+            seg_data.append([[], [], [], [], w_item["ID"]])
 
     # Pass a copy of current state of sort info to seg_summary. Actual sort_info
     # will be altered later but SegSummary must follow original data
@@ -272,57 +299,82 @@ def full_binary_pursuit(
         deepcopy(sort_info),
         v_dtype,
         absolute_refractory_period=absolute_refractory_period,
-        verbose=False)
+        verbose=False,
+    )
     if len(seg_summary.summaries) == 0:
         print("Found no neuron templates for binary pursuit")
         return [[[], [], [], [], None]]
 
-    if sort_info['verbose']:
+    if sort_info["verbose"]:
         print(
-            "Entered with", len(seg_summary.summaries),
-            "templates in segment", seg_number+1)
+            "Entered with",
+            len(seg_summary.summaries),
+            "templates in segment",
+            seg_number + 1,
+        )
 
     # Need this chan_win before assigning binary pursuit clip width. Used for
     # find_overlap_templates
-    chan_win, clip_width = time_window_to_samples(sort_info['clip_width'], sort_info['sampling_rate'])
+    chan_win, clip_width = time_window_to_samples(
+        sort_info["clip_width"], sort_info["sampling_rate"]
+    )
 
     # Reassign binary pursuit clip width to clip width
     # (This is slightly confusing but keeps certain code compatability.
     # We will reset it to original value at the end.)
-    sort_info['clip_width'], original_clip_starts, original_clip_stops = \
-                get_binary_pursuit_clip_width(seg_w_items, clips_dict, voltage, data_dict, sort_info)
+    (
+        sort_info["clip_width"],
+        original_clip_starts,
+        original_clip_stops,
+    ) = get_binary_pursuit_clip_width(
+        seg_w_items,
+        clips_dict,
+        voltage,
+        data_dict,
+        sort_info,
+    )
     # Store newly assigned binary pursuit clip width for final output
-    if 'binary_pursuit_clip_width' not in sort_info:
-        sort_info['binary_pursuit_clip_width'] = [0, 0]
-    sort_info['binary_pursuit_clip_width'][0] = min(sort_info['clip_width'][0], sort_info['binary_pursuit_clip_width'][0])
-    sort_info['binary_pursuit_clip_width'][1] = max(sort_info['clip_width'][1], sort_info['binary_pursuit_clip_width'][1])
-    bp_chan_win, _ = time_window_to_samples(sort_info['clip_width'], sort_info['sampling_rate'])
-    sort_info['n_samples_per_chan'] = bp_chan_win[1] - bp_chan_win[0]
+    if "binary_pursuit_clip_width" not in sort_info:
+        sort_info["binary_pursuit_clip_width"] = [0, 0]
+    sort_info["binary_pursuit_clip_width"][0] = min(
+        sort_info["clip_width"][0], sort_info["binary_pursuit_clip_width"][0]
+    )
+    sort_info["binary_pursuit_clip_width"][1] = max(
+        sort_info["clip_width"][1], sort_info["binary_pursuit_clip_width"][1]
+    )
+    bp_chan_win, _ = time_window_to_samples(
+        sort_info["clip_width"], sort_info["sampling_rate"]
+    )
+    sort_info["n_samples_per_chan"] = bp_chan_win[1] - bp_chan_win[0]
     # This should be same as input samples per chan but could probably
     # be off by one due to rounding error of the clip width so
     # need to recompute
     bp_reduction_samples_per_chan = original_clip_stops[0] - original_clip_starts[0]
     if bp_reduction_samples_per_chan != original_n_samples_per_chan:
         # This should be coded so this never happens, but if it does it could be a difficult to notice disaster during consolidate
-        raise RuntimeError("Template reduction from binary pursuit does not have the same number of samples as original!")
-    if sort_info['verbose']:
+        raise RuntimeError(
+            "Template reduction from binary pursuit does not have the same number of samples as original!"
+        )
+    if sort_info["verbose"]:
         print(
             "Binary pursuit clip width is",
-            sort_info['clip_width'],
-            "from", original_clip_width)
+            sort_info["clip_width"],
+            "from",
+            original_clip_width,
+        )
 
-    if sort_info['verbose']:
+    if sort_info["verbose"]:
         print(
             "Binary pursuit samples per chan",
-            sort_info['n_samples_per_chan'],
-            "from", original_n_samples_per_chan)
+            sort_info["n_samples_per_chan"],
+            "from",
+            original_n_samples_per_chan,
+        )
 
     # seg_summary.sharpen_across_chans()
     # if sort_info['verbose']: print("Sharpening reduced number of templates to", len(seg_summary.summaries))
-    if sort_info['verbose']:
-        print(
-            "Checking", len(seg_summary.summaries),
-            "neurons for potential sums")
+    if sort_info["verbose"]:
+        print("Checking", len(seg_summary.summaries), "neurons for potential sums")
 
     # Gather the bp_templates for each unit and the clip-template residuals for
     # computing the separability metrics for each unit
@@ -334,43 +386,62 @@ def full_binary_pursuit(
             clips_dict,
             voltage,
             all_chan_nbrs,
-            n['spike_indices'],
-            clip_width_s=sort_info['clip_width']
-            )
+            n["spike_indices"],
+            clip_width_s=sort_info["clip_width"],
+        )
         robust_template = calculate_robust_template(clips)
         bp_templates.append(robust_template)
         all_resid_clips.append(clips - robust_template)
-        n_template_spikes.append(n['spike_indices'].shape[0])
+        n_template_spikes.append(n["spike_indices"].shape[0])
 
     bp_templates = np.vstack(bp_templates)
     all_resid_clips = np.vstack(all_resid_clips)
     # Get the noise covariance over time within the binary pursuit clip width
-    if sort_info['verbose']: print("Computing clip noise covariance for each channel with", sort_info['n_cov_samples'], "clip samples")
+    if sort_info["verbose"]:
+        print(
+            "Computing clip noise covariance for each channel with",
+            sort_info["n_cov_samples"],
+            "clip samples",
+        )
     chan_covariance_mats = []
-    for chan in range(0, sort_info['n_channels']):
-        t_win = [chan*sort_info['n_samples_per_chan'], (chan+1)*sort_info['n_samples_per_chan']]
-        if sort_info['n_cov_samples'] >= all_resid_clips.shape[0]:
+    for chan in range(0, sort_info["n_channels"]):
+        t_win = [
+            chan * sort_info["n_samples_per_chan"],
+            (chan + 1) * sort_info["n_samples_per_chan"],
+        ]
+        if sort_info["n_cov_samples"] >= all_resid_clips.shape[0]:
             cov_sample_inds = np.arange(0, all_resid_clips.shape[0])
         else:
-            cov_sample_inds = np.random.randint(0, all_resid_clips.shape[0], sort_info['n_cov_samples'])
-        chan_covariance_mats.append(np.cov(all_resid_clips[cov_sample_inds, t_win[0]:t_win[1]], rowvar=False, ddof=0))
+            cov_sample_inds = np.random.randint(
+                0,
+                all_resid_clips.shape[0],
+                sort_info["n_cov_samples"],
+            )
+        chan_covariance_mats.append(
+            np.cov(
+                all_resid_clips[cov_sample_inds, t_win[0] : t_win[1]],
+                rowvar=False,
+                ddof=0,
+            )
+        )
 
     n_template_spikes = np.array(n_template_spikes, dtype=np.int64)
     # The overlap check input here is hard coded to look at shifts +/- the
     # original input chan win (clip_width). This is arbitrary
     templates_to_check = sort_cython.find_overlap_templates(
         bp_templates,
-        sort_info['n_samples_per_chan'],
-        sort_info['n_channels'],
-        np.int64(np.abs(chan_win[0])-1),
-        np.int64(np.abs(chan_win[1])-1),
-        n_template_spikes)
+        sort_info["n_samples_per_chan"],
+        sort_info["n_channels"],
+        np.int64(np.abs(chan_win[0]) - 1),
+        np.int64(np.abs(chan_win[1]) - 1),
+        n_template_spikes,
+    )
 
     # Go through suspect bp_templates in templates_to_check
     templates_to_delete = np.zeros(bp_templates.shape[0], dtype="bool")
     # Use the sigma lower bound to decide the acceptable level of
     # misclassification between template sums
-    confusion_threshold = norm.sf(sort_info['sigma'])
+    confusion_threshold = norm.sf(sort_info["sigma"])
     for t_info in templates_to_check:
         # templates_to_check is not length of bp_templates so need to find the
         # correct index of the template being checked
@@ -380,7 +451,8 @@ def full_binary_pursuit(
             bp_templates[t_ind, :],
             shift_temp,
             chan_covariance_mats,
-            sort_info)
+            sort_info,
+        )
         if p_confusion > confusion_threshold:
             templates_to_delete[t_ind] = True
 
@@ -389,34 +461,34 @@ def full_binary_pursuit(
     for x in reversed(range(0, len(seg_summary.summaries))):
         if templates_to_delete[x]:
             del seg_summary.summaries[x]
-    if sort_info['verbose']:
+    if sort_info["verbose"]:
         print(
-            "Removing sums reduced number of templates to",
-            len(seg_summary.summaries))
+            "Removing sums reduced number of templates to", len(seg_summary.summaries)
+        )
 
     # Return the original neighbors to the work items that were reset
     orig_neigh_ind = 0
     for w_item in seg_w_items:
-        if w_item['ID'] in data_dict['results_dict'].keys():
-            w_item['neighbors'] = original_neighbors[orig_neigh_ind]
+        if w_item["ID"] in data_dict["results_dict"].keys():
+            w_item["neighbors"] = original_neighbors[orig_neigh_ind]
             orig_neigh_ind += 1
 
     if len(seg_summary.summaries) == 0:
         # All data this segment found nothing (or raised an exception)
         seg_data = []
-        for chan in range(0, sort_info['n_channels']):
+        for chan in range(0, sort_info["n_channels"]):
             curr_item = None
             for w_item in seg_w_items:
-                if w_item['channel'] == chan:
+                if w_item["channel"] == chan:
                     curr_item = w_item
                     break
             if curr_item is None:
                 # This should never be possible, but just to be sure
                 raise RuntimeError("Could not find a matching work item for unit")
-            seg_data.append([[], [], [], [], curr_item['ID']])
+            seg_data.append([[], [], [], [], curr_item["ID"]])
         # Set these back to match input values
-        sort_info['clip_width'] = original_clip_width
-        sort_info['n_samples_per_chan'] = bp_reduction_samples_per_chan
+        sort_info["clip_width"] = original_clip_width
+        sort_info["n_samples_per_chan"] = bp_reduction_samples_per_chan
         return seg_data
 
     # Perform final sharpening, this time including channel covariance matrices
@@ -424,58 +496,58 @@ def full_binary_pursuit(
     # pursuit templates is accounted for
     seg_summary.set_bp_templates(bp_templates)
     seg_summary.sharpen_across_chans(chan_covariance_mats)
-    bp_templates = [n['bp_template'] for n in seg_summary.summaries]
-    if sort_info['verbose']:
+    bp_templates = [n["bp_template"] for n in seg_summary.summaries]
+    if sort_info["verbose"]:
         print(
-            "Removing confused pairs reduced number of templates to",
-            len(bp_templates))
-    
-    del seg_summary # No longer needed so clear memory
+            "Removing confused pairs reduced number of templates to", len(bp_templates)
+        )
+
+    del seg_summary  # No longer needed so clear memory
 
     separability_metrics = neuron_separability.compute_separability_metrics(
         bp_templates,
         chan_covariance_mats,
-        sort_info
-        )
+        sort_info,
+    )
     # Identify templates similar to noise and decide what to do with them
     noisy_templates = neuron_separability.find_noisy_templates(
-        separability_metrics,
-        sort_info
-        )
+        separability_metrics, sort_info
+    )
     separability_metrics = neuron_separability.set_bp_threshold(separability_metrics)
     separability_metrics, noisy_templates = neuron_separability.check_noise_templates(
         separability_metrics,
         sort_info,
-        noisy_templates
-        )
+        noisy_templates,
+    )
     separability_metrics = neuron_separability.delete_noise_units(
-        separability_metrics,
-        noisy_templates
-        )
+        separability_metrics, noisy_templates
+    )
 
-    if separability_metrics['templates'].shape[0] == 0:
+    if separability_metrics["templates"].shape[0] == 0:
         # All data this segment found nothing (or raised an exception)
         seg_data = []
-        for chan in range(0, sort_info['n_channels']):
+        for chan in range(0, sort_info["n_channels"]):
             curr_item = None
             for w_item in seg_w_items:
-                if w_item['channel'] == chan:
+                if w_item["channel"] == chan:
                     curr_item = w_item
                     break
             if curr_item is None:
                 # This should never be possible, but just to be sure
                 raise RuntimeError("Could not find a matching work item for unit")
-            seg_data.append([[], [], [], [], curr_item['ID']])
+            seg_data.append([[], [], [], [], curr_item["ID"]])
         # Set these back to match input values
-        sort_info['clip_width'] = original_clip_width
-        sort_info['n_samples_per_chan'] = bp_reduction_samples_per_chan
+        sort_info["clip_width"] = original_clip_width
+        sort_info["n_samples_per_chan"] = bp_reduction_samples_per_chan
         return seg_data
 
-    if sort_info['verbose']:
+    if sort_info["verbose"]:
         print(
             "Starting full binary pursuit search with",
-            separability_metrics['templates'].shape[0],
-            "templates in segment", seg_number+1)
+            separability_metrics["templates"].shape[0],
+            "templates in segment",
+            seg_number + 1,
+        )
 
     crossings, neuron_labels, bp_bool, clips = binary_pursuit_parallel.binary_pursuit(
         voltage,
@@ -484,33 +556,39 @@ def full_binary_pursuit(
         separability_metrics,
         n_max_shift_inds=n_max_shift_inds,
         kernels_path=None,
-        max_gpu_memory=max_gpu_memory)
+        max_gpu_memory=max_gpu_memory,
+    )
 
-    if not sort_info['get_adjusted_clips']:
+    if not sort_info["get_adjusted_clips"]:
         clips, _ = get_clips(
             clips_dict,
             voltage,
             all_chan_nbrs,
             crossings,
-            clip_width_s=sort_info['clip_width'])
+            clip_width_s=sort_info["clip_width"],
+        )
 
-    if sort_info['output_separability_metrics']:
+    if sort_info["output_separability_metrics"]:
         # Save the separability metrics as used (and output) by binary_pursuit
-        sort_info['separability_metrics'][seg_number] = separability_metrics
+        sort_info["separability_metrics"][seg_number] = separability_metrics
 
     chans_to_template_labels = {}
-    for chan in range(0, sort_info['n_channels']):
+    for chan in range(0, sort_info["n_channels"]):
         chans_to_template_labels[chan] = []
     for unit in np.unique(neuron_labels):
         # Find this unit's channel as the channel with max SNR of template
         curr_template = np.mean(clips[neuron_labels == unit, :], axis=0)
         unit_best_snr = -1.0
         unit_best_chan = None
-        for chan in range(0, sort_info['n_channels']):
-            background_noise_std = seg_w_items[0]['thresholds'][chan] / sort_info['sigma']
-            chan_win = [sort_info['n_samples_per_chan'] * chan,
-                          sort_info['n_samples_per_chan'] * (chan + 1)]
-            chan_template = curr_template[chan_win[0]:chan_win[1]]
+        for chan in range(0, sort_info["n_channels"]):
+            background_noise_std = (
+                seg_w_items[0]["thresholds"][chan] / sort_info["sigma"]
+            )
+            chan_win = [
+                sort_info["n_samples_per_chan"] * chan,
+                sort_info["n_samples_per_chan"] * (chan + 1),
+            ]
+            chan_template = curr_template[chan_win[0] : chan_win[1]]
             temp_range = np.amax(chan_template) - np.amin(chan_template)
             chan_snr = temp_range / (3 * background_noise_std)
             if chan_snr > unit_best_snr:
@@ -519,16 +597,16 @@ def full_binary_pursuit(
         chans_to_template_labels[unit_best_chan].append(unit)
 
     # Set these back to match input values
-    sort_info['clip_width'] = original_clip_width
-    sort_info['n_samples_per_chan'] = bp_reduction_samples_per_chan
+    sort_info["clip_width"] = original_clip_width
+    sort_info["n_samples_per_chan"] = bp_reduction_samples_per_chan
 
     # Need to convert binary pursuit output to standard sorting output. This
     # requires data from every channel, even if it is just empty
     seg_data = []
-    for chan in range(0, sort_info['n_channels']):
+    for chan in range(0, sort_info["n_channels"]):
         curr_item = None
         for w_item in seg_w_items:
-            if w_item['channel'] == chan:
+            if w_item["channel"] == chan:
                 curr_item = w_item
                 break
         if curr_item is None:
@@ -545,30 +623,47 @@ def full_binary_pursuit(
 
                 if output_clips:
                     # Get clips for this unit over all channels
-                    unit_clips = np.zeros((np.count_nonzero(select),
-                                           curr_item['neighbors'].shape[0] * \
-                                           sort_info['n_samples_per_chan']),
-                                           dtype=v_dtype)
+                    unit_clips = np.zeros(
+                        (
+                            np.count_nonzero(select),
+                            curr_item["neighbors"].shape[0]
+                            * sort_info["n_samples_per_chan"],
+                        ),
+                        dtype=v_dtype,
+                    )
                     # Map clips from all channels to current channel neighborhood
-                    for neigh in range(0, curr_item['neighbors'].shape[0]):
-                        chan_ind = curr_item['neighbors'][neigh]
-                        unit_clips[:, neigh*sort_info['n_samples_per_chan']:(neigh+1)*sort_info['n_samples_per_chan']] = \
-                                clips[select, original_clip_starts[chan_ind]:original_clip_stops[chan_ind]]
+                    for neigh in range(0, curr_item["neighbors"].shape[0]):
+                        chan_ind = curr_item["neighbors"][neigh]
+                        unit_clips[
+                            :,
+                            neigh
+                            * sort_info["n_samples_per_chan"] : (neigh + 1)
+                            * sort_info["n_samples_per_chan"],
+                        ] = clips[
+                            select,
+                            original_clip_starts[chan_ind] : original_clip_stops[
+                                chan_ind
+                            ],
+                        ]
                     chan_clips.append(unit_clips)
                 else:
                     chan_clips.append([])
 
             # Adjust crossings for seg start time
             chan_events = np.hstack(chan_events)
-            chan_events += curr_item['index_window'][0]
+            chan_events += curr_item["index_window"][0]
             # Append list of crossings, labels, clips, binary pursuit spikes
-            seg_data.append([chan_events,
-                             np.hstack(chan_labels),
-                             np.vstack(chan_clips),
-                             np.hstack(chan_bp_bool),
-                             curr_item['ID']])
+            seg_data.append(
+                [
+                    chan_events,
+                    np.hstack(chan_labels),
+                    np.vstack(chan_clips),
+                    np.hstack(chan_bp_bool),
+                    curr_item["ID"],
+                ]
+            )
         else:
             # This work item found nothing (or raised an exception)
-            seg_data.append([[], [], [], [], curr_item['ID']])
+            seg_data.append([[], [], [], [], curr_item["ID"]])
 
     return seg_data

@@ -834,7 +834,10 @@ class RunBinaryPursuit(object):
                 bp_templates = bp_templates.reshape(1, -1)
 
         self.full_chan_covariance_mats = noise_covariance_parallel(
-            self.voltage_array, bp_chan_win, 10000, rand_state=rand_state
+            self.voltage_array,
+            bp_chan_win,
+            10000,
+            rand_state=rand_state,
         )
 
         # Need to find threshold crossings here since we are not running
@@ -846,11 +849,15 @@ class RunBinaryPursuit(object):
                 _,
                 self.sort_info["n_threshold_crossings"][chan],
             ) = spikesorting_fullpursuit.threshold.threshold.identify_threshold_crossings(
-                self.voltage_array[chan, :], self.sort_info, chan_thresholds[chan]
+                self.voltage_array[chan, :],
+                self.sort_info,
+                chan_thresholds[chan],
             )
 
         self.separability_metrics = neuron_separability.compute_separability_metrics(
-            bp_templates, self.full_chan_covariance_mats, self.sort_info
+            bp_templates,
+            self.full_chan_covariance_mats,
+            self.sort_info,
         )
         noisy_templates = neuron_separability.find_noisy_templates(
             self.separability_metrics, self.sort_info
@@ -859,7 +866,9 @@ class RunBinaryPursuit(object):
             self.separability_metrics,
             noisy_templates,
         ) = neuron_separability.check_noise_templates(
-            self.separability_metrics, self.sort_info, noisy_templates
+            self.separability_metrics,
+            self.sort_info,
+            noisy_templates,
         )
         self.separability_metrics = neuron_separability.delete_noise_units(
             self.separability_metrics, noisy_templates
