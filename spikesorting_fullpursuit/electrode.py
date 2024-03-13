@@ -3,9 +3,8 @@ from scipy.signal import filtfilt, butter
 from spikesorting_fullpursuit.utils.parallel_funs import filter_parallel
 
 
-
 class AbstractProbe(object):
-    """ An abstract probe encapsulates a large number of recording devices.
+    """An abstract probe encapsulates a large number of recording devices.
     Each of the instantiations of this abstract type can have a number of
     channels. Geometry must be specified for each subclass using the
     'get_neighbors' method specification.
@@ -14,16 +13,28 @@ class AbstractProbe(object):
      num_channels() which returns the number of total channels (N)
      voltage_array which is an N x samples numpy array of raw recording.
      get_neighbors(index) # Returns a list of neighboring channels, which must
-     include the input channel and be a numpy array of integers! """
+     include the input channel and be a numpy array of integers!"""
 
-    def __init__(self, sampling_rate, num_channels, voltage_array=None, voltage_dtype=None):
+    def __init__(
+        self,
+        sampling_rate,
+        num_channels,
+        voltage_array=None,
+        voltage_dtype=None,
+    ):
         self.sampling_rate = int(sampling_rate)
         self.num_channels = num_channels
         self.filter_band = [None, None]
         if voltage_dtype is None:
             voltage_dtype = voltage_array.dtype
         if voltage_array.dtype != voltage_dtype:
-            print("Input voltage array is being cast from", voltage_array.dtype, "to", voltage_type, "because its type did not match the input voltage_type.")
+            print(
+                "Input voltage array is being cast from",
+                voltage_array.dtype,
+                "to",
+                voltage_type,
+                "because its type did not match the input voltage_type.",
+            )
             voltage_array = voltage_array.astype(voltage_type)
         self.v_dtype = voltage_dtype
 
@@ -39,12 +50,14 @@ class AbstractProbe(object):
             # One dimensional voltage must be converted to 2 dimensions
             self.voltage = np.expand_dims(self.voltage, 0)
         if (self.num_channels != self.voltage.shape[0]) or (self.voltage.ndim < 1):
-            raise ValueError("None of the voltage data dimensions match the input number of channels")
+            raise ValueError(
+                "None of the voltage data dimensions match the input number of channels"
+            )
         self.n_samples = self.voltage.shape[1]
 
     def set_new_voltage(self, new_voltage_array):
-        """ Reassigns voltage to new_voltage_array and updates dims/samples
-        accordingly. """
+        """Reassigns voltage to new_voltage_array and updates dims/samples
+        accordingly."""
         if not isinstance(new_voltage_array, np.ndarray):
             raise ValueError("Input new_voltage_array must be numpy ndarray")
         self.voltage = new_voltage_array
@@ -52,38 +65,51 @@ class AbstractProbe(object):
         if self.voltage.ndim == 1:
             self.voltage = np.expand_dims(self.voltage, 0)
         if (self.num_channels != self.voltage.shape[0]) or (self.voltage.ndim < 1):
-            raise ValueError("None of the voltage data dimensions match the input number of channels")
+            raise ValueError(
+                "None of the voltage data dimensions match the input number of channels"
+            )
         self.n_samples = self.voltage.shape[1]
 
     def get_voltage(self, channels, time_samples=None):
-        """ Returns voltage trace for input channels and time sample indices.  These
-            can be either tuples or slices. """
+        """Returns voltage trace for input channels and time sample indices.  These
+        can be either tuples or slices."""
         # Channels are rows and time is columns
         if time_samples is None:
             time_samples = slice(0, self.voltage.shape[1], 1)
         return self.voltage[channels, time_samples]
 
-    def set_voltage(self, channels, new_voltage, time_samples=None):
-        """ Sets voltage trace for input channels and time sample indices.  These
-            can be either tuples or slices. """
+    def set_voltage(
+        self,
+        channels,
+        new_voltage,
+        time_samples=None,
+    ):
+        """Sets voltage trace for input channels and time sample indices.  These
+        can be either tuples or slices."""
         # Channels are rows and time is columns
         if time_samples is None:
             time_samples = slice(0, self.voltage.shape[1], 1)
         self.voltage[channels, time_samples] = new_voltage
 
     def get_neighbors(channel) -> np.ndarray:
-        """ Should be defined by any subclass electrode/probe to account for
-        their specific geometry. Must return numpy array of integers. """
+        """Should be defined by any subclass electrode/probe to account for
+        their specific geometry. Must return numpy array of integers."""
         if channel > self.num_channels - 1 or channel < 0:
             raise ValueError("Invalid electrode channel")
 
-    def bandpass_filter_parallel(self, low_cutoff=1000, high_cutoff=8000):
-        """ One pole bandpass forward backward butterworth filter on each channel.
-        Uses parallel filtering to speed up for large datasets. """
+    def bandpass_filter_parallel(
+        self,
+        low_cutoff=1000,
+        high_cutoff=8000,
+    ):
+        """One pole bandpass forward backward butterworth filter on each channel.
+        Uses parallel filtering to speed up for large datasets."""
         if self.filter_band[0] is not None and self.filter_band[1] is not None:
             if low_cutoff <= self.filter_band[0] and high_cutoff >= self.filter_band[1]:
                 # Don't keep doing costly filtering if it won't have any effect
-                print("Voltage has already been filtered within input frequency band. Skipping filtering.")
+                print(
+                    "Voltage has already been filtered within input frequency band. Skipping filtering."
+                )
                 return
         self.voltage = filter_parallel(self, low_cutoff, high_cutoff)
 
@@ -97,18 +123,33 @@ class AbstractProbe(object):
         elif high_cutoff < self.filter_band[1]:
             self.filter_band[1] = high_cutoff
 
-    def bandpass_filter(self, low_cutoff=1000, high_cutoff=8000):
-        """ One pole bandpass forward backward butterworth filter on each channel. """
+    def bandpass_filter(
+        self,
+        low_cutoff=1000,
+        high_cutoff=8000,
+    ):
+        """One pole bandpass forward backward butterworth filter on each channel."""
         if self.filter_band[0] is not None and self.filter_band[1] is not None:
             if low_cutoff <= self.filter_band[0] and high_cutoff >= self.filter_band[1]:
                 # Don't keep doing costly filtering if it won't have any effect
-                print("Voltage has already been filtered within input frequency band. Skipping filtering.")
+                print(
+                    "Voltage has already been filtered within input frequency band. Skipping filtering."
+                )
                 return
         low_cutoff = low_cutoff / (self.sampling_rate / 2)
         high_cutoff = high_cutoff / (self.sampling_rate / 2)
-        b_filt, a_filt = butter(1, [low_cutoff, high_cutoff], btype='band')
+        b_filt, a_filt = butter(1, [low_cutoff, high_cutoff], btype="band")
         for chan in range(0, self.num_channels):
-            self.set_voltage(chan, filtfilt(b_filt, a_filt, self.get_voltage(chan), axis=0, padlen=None))
+            self.set_voltage(
+                chan,
+                filtfilt(
+                    b_filt,
+                    a_filt,
+                    self.get_voltage(chan),
+                    axis=0,
+                    padlen=None,
+                ),
+            )
 
         # Update Probe filter band values
         if self.filter_band[0] is None:
@@ -122,11 +163,21 @@ class AbstractProbe(object):
 
 
 class SProbe16by2(AbstractProbe):
-
-    def __init__(self, sampling_rate, voltage_array=None, stereo_rad=1):
-        AbstractProbe.__init__(self, sampling_rate, 32, voltage_array=voltage_array, voltage_dtype=None)
-        self.stereo_rad = stereo_rad # Selects neighborhood radius in steroetrodes
-        self.total_stereotrodes = 16 # Definition of 16x2 probe
+    def __init__(
+        self,
+        sampling_rate,
+        voltage_array=None,
+        stereo_rad=1,
+    ):
+        AbstractProbe.__init__(
+            self,
+            sampling_rate,
+            32,
+            voltage_array=voltage_array,
+            voltage_dtype=None,
+        )
+        self.stereo_rad = stereo_rad  # Selects neighborhood radius in steroetrodes
+        self.total_stereotrodes = 16  # Definition of 16x2 probe
 
     def get_neighbors(self, channel):
         # These are organized into stereotrodes. Our neighbors are the channels on
@@ -138,18 +189,30 @@ class SProbe16by2(AbstractProbe):
 
         stereotrode_number = (channel) // 2
         start_stereotrode = max(0, stereotrode_number - self.stereo_rad)
-        end_stereotrode = min(self.total_stereotrodes, stereotrode_number + self.stereo_rad + 1)
+        end_stereotrode = min(
+            self.total_stereotrodes, stereotrode_number + self.stereo_rad + 1
+        )
         neighbors = np.arange(start_stereotrode * 2, end_stereotrode * 2, 1)
 
         return np.int64(neighbors)
 
 
 class SProbe8by2(AbstractProbe):
-
-    def __init__(self, sampling_rate, voltage_array=None, stereo_rad=1):
-        AbstractProbe.__init__(self, sampling_rate, 16, voltage_array=voltage_array, voltage_dtype=None)
-        self.stereo_rad = stereo_rad # Selects neighborhood radius in steroetrodes
-        self.total_stereotrodes = 8 # Definition of 8x2 probe
+    def __init__(
+        self,
+        sampling_rate,
+        voltage_array=None,
+        stereo_rad=1,
+    ):
+        AbstractProbe.__init__(
+            self,
+            sampling_rate,
+            16,
+            voltage_array=voltage_array,
+            voltage_dtype=None,
+        )
+        self.stereo_rad = stereo_rad  # Selects neighborhood radius in steroetrodes
+        self.total_stereotrodes = 8  # Definition of 8x2 probe
 
     def get_neighbors(self, channel):
         # These are organized into stereotrodes. Our neighbors are the channels on
@@ -161,16 +224,27 @@ class SProbe8by2(AbstractProbe):
 
         stereotrode_number = (channel) // 2
         start_stereotrode = max(0, stereotrode_number - self.stereo_rad)
-        end_stereotrode = min(self.total_stereotrodes, stereotrode_number + self.stereo_rad + 1)
+        end_stereotrode = min(
+            self.total_stereotrodes, stereotrode_number + self.stereo_rad + 1
+        )
         neighbors = np.arange(start_stereotrode * 2, end_stereotrode * 2, 1)
 
         return np.int64(neighbors)
 
 
 class SingleElectrode(AbstractProbe):
-
-    def __init__(self, sampling_rate, voltage_array=None):
-        AbstractProbe.__init__(self, sampling_rate, 1, voltage_array=voltage_array, voltage_dtype=None)
+    def __init__(
+        self,
+        sampling_rate,
+        voltage_array=None,
+    ):
+        AbstractProbe.__init__(
+            self,
+            sampling_rate,
+            1,
+            voltage_array=voltage_array,
+            voltage_dtype=None,
+        )
 
     def get_neighbors(self, channel):
         if channel > self.num_channels - 1 or channel < 0:
@@ -180,9 +254,14 @@ class SingleElectrode(AbstractProbe):
 
 
 class SingleTetrode(AbstractProbe):
-
     def __init__(self, sampling_rate, voltage_array=None):
-        AbstractProbe.__init__(self, sampling_rate, 4, voltage_array=voltage_array, voltage_dtype=None)
+        AbstractProbe.__init__(
+            self,
+            sampling_rate,
+            4,
+            voltage_array=voltage_array,
+            voltage_dtype=None,
+        )
 
     def get_neighbors(self, channel):
         # These are organized into stereotrodes. Our neighbors are the channels on
@@ -198,23 +277,36 @@ class SingleTetrode(AbstractProbe):
 
 
 class DistanceBasedProbe(AbstractProbe):
-
-    def __init__(self, sampling_rate, num_channels, xy_layout, radius, voltage_array=None):
-        """ xy_layout is 2D numpy array where each row represents its
+    def __init__(
+        self,
+        sampling_rate,
+        num_channels,
+        xy_layout,
+        radius,
+        voltage_array=None,
+    ):
+        """xy_layout is 2D numpy array where each row represents its
         corresonding channel number and each column gives the x, y coordinates
-        of that channel in micrometers. """
-        AbstractProbe.__init__(self, sampling_rate, num_channels, voltage_array=voltage_array, voltage_dtype=None)
+        of that channel in micrometers."""
+        AbstractProbe.__init__(
+            self,
+            sampling_rate,
+            num_channels,
+            voltage_array=voltage_array,
+            voltage_dtype=None,
+        )
 
         self.distance_radius = radius
         self.distance_mat = np.zeros((xy_layout.shape[0], xy_layout.shape[0]))
         for n_trode in range(0, xy_layout.shape[0]):
             for n_pair in range(n_trode + 1, xy_layout.shape[0]):
-                self.distance_mat[n_trode, n_pair] = np.sqrt(np.sum( \
-                            (xy_layout[n_trode, :] - xy_layout[n_pair, :]) ** 2))
+                self.distance_mat[n_trode, n_pair] = np.sqrt(
+                    np.sum((xy_layout[n_trode, :] - xy_layout[n_pair, :]) ** 2)
+                )
                 self.distance_mat[n_pair, n_trode] = self.distance_mat[n_trode, n_pair]
 
     def get_neighbors(self, channel):
-        """ Neighbors returned as all channels within self.distance_radius microns of input channel. """
+        """Neighbors returned as all channels within self.distance_radius microns of input channel."""
         if channel > self.num_channels - 1 or channel < 0:
             raise ValueError("Invalid electrode channel")
         neighbors = np.flatnonzero(self.distance_mat[channel, :] < self.distance_radius)
@@ -223,9 +315,14 @@ class DistanceBasedProbe(AbstractProbe):
 
 
 class SProbe24by1(AbstractProbe):
-
     def __init__(self, sampling_rate, voltage_array=None):
-        AbstractProbe.__init__(self, sampling_rate, 24, voltage_array=voltage_array, voltage_dtype=None)
+        AbstractProbe.__init__(
+            self,
+            sampling_rate,
+            24,
+            voltage_array=voltage_array,
+            voltage_dtype=None,
+        )
 
     def get_neighbors(self, channel):
         if channel > self.num_channels - 1 or channel < 0:
