@@ -17,7 +17,11 @@ from spikesorting_fullpursuit.utils.memmap_close import MemMapClose
 
 
 def get_binary_pursuit_clip_width(
-    seg_w_items, clips_dict, voltage, data_dict, sort_info
+    seg_w_items,
+    clips_dict,
+    voltage,
+    data_dict,
+    sort_info,
 ):
     """
     Determines a clip width to use for binary pursuit by asking how much
@@ -380,7 +384,7 @@ def full_binary_pursuit(
     # Gather the bp_templates for each unit and the clip-template residuals for
     # computing the separability metrics for each unit
     bp_templates = []
-    all_resid_clips = []
+    clip_template_residuals = []
     n_template_spikes = []
     for n in seg_summary.summaries:
         clips, _ = get_clips(
@@ -392,39 +396,18 @@ def full_binary_pursuit(
         )
         robust_template = calculate_robust_template(clips)
         bp_templates.append(robust_template)
-        all_resid_clips.append(clips - robust_template)
+        clip_template_residuals.append(clips - robust_template)
         n_template_spikes.append(n["spike_indices"].shape[0])
 
-    bp_templates = np.vstack(bp_templates)
-    all_resid_clips = np.vstack(all_resid_clips)
-    # Get the noise covariance over time within the binary pursuit clip width
-    if sort_info["verbose"]:
-        print(
-            "Computing clip noise covariance for each channel with",
-            sort_info["n_cov_samples"],
-            "clip samples",
-        )
-    chan_covariance_mats = []
-    for chan in range(0, sort_info["n_channels"]):
-        t_win = [
-            chan * sort_info["n_samples_per_chan"],
-            (chan + 1) * sort_info["n_samples_per_chan"],
-        ]
-        if sort_info["n_cov_samples"] >= all_resid_clips.shape[0]:
-            cov_sample_inds = np.arange(0, all_resid_clips.shape[0])
-        else:
-            cov_sample_inds = np.random.randint(
-                0,
-                all_resid_clips.shape[0],
-                sort_info["n_cov_samples"],
-            )
-        chan_covariance_mats.append(
-            np.cov(
-                all_resid_clips[cov_sample_inds, t_win[0] : t_win[1]],
-                rowvar=False,
-                ddof=0,
-            )
-        )
+    bp_templates = np.vstack(bp_templates)  # N_units X template_width
+
+    chan_covariance_mats = get_channel_covariance_matrix(
+        clip_template_residuals,
+        sort_info["n_channels"],
+        sort_info["n_samples_per_chan"],
+        sort_info["n_cov_samples"],
+        sort_info["verbose"],
+    )
 
     n_template_spikes = np.array(n_template_spikes, dtype=np.int64)
     # The overlap check input here is hard coded to look at shifts +/- the
@@ -668,3 +651,66 @@ def full_binary_pursuit(
             seg_data.append([[], [], [], [], curr_item["ID"]])
 
     return seg_data
+
+
+def get_channel_covariance_matrix(
+    clip_template_residuals,
+    n_channels,
+    n_samples_per_chan,
+    n_cov_samples,
+    verbose,
+):
+    """
+    Finds the covariance matrix for each channel by using
+    residual variation between clips and robust clip templates
+
+    Parameters
+    ----------
+    clip_template_residuals: list
+        Length of the number of units
+        Each element is a numpy array of shape (event_indices vs template_width (all channels)
+    n_channels: int
+    n_samples_per_chan: int
+    n_cov_samples: int
+    verbose: bool
+
+
+    Returns
+    -------
+
+    """
+    clip_template_residuals = np.vstack(
+        clip_template_residuals
+    )  # (N_units x event_indices) X template_width
+
+    # Get the noise covariance over time within the binary pursuit clip width
+    if verbose:
+        print(
+            "Computing clip noise covariance for each channel with",
+            n_cov_samples,
+            "clip samples",
+        )
+    chan_covariance_mats = []
+    for chan in range(0, n_channels):
+        t_win = [
+            chan * n_samples_per_chan,
+            (chan + 1) * n_samples_per_chan,
+        ]
+
+        if n_cov_samples >= clip_template_residuals.shape[0]:
+            cov_sample_inds = np.arange(0, clip_template_residuals.shape[0])
+        else:
+            cov_sample_inds = np.random.randint(
+                0,
+                clip_template_residuals.shape[0],
+                n_cov_samples,
+            )
+
+        chan_covariance_mats.append(
+            np.cov(
+                clip_template_residuals[cov_sample_inds, t_win[0] : t_win[1]],
+                rowvar=False,
+                ddof=0,
+            )
+        )
+    return chan_covariance_mats
