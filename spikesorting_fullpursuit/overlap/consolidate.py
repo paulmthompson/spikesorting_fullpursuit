@@ -8,7 +8,12 @@ from spikesorting_fullpursuit.analyze_spike_timing import remove_spike_event_dup
 
 
 def optimal_align_templates(
-    temp_1, temp_2, n_chans, max_shift=None, align_abs=False, zero_pad=False
+    temp_1,
+    temp_2,
+    n_chans,
+    max_shift=None,
+    align_abs=False,
+    zero_pad=False,
 ):
     """ """
     n_samples_per_chan = int(temp_1.shape[0] / n_chans)
@@ -88,7 +93,12 @@ def optimal_align_templates(
     return shift_temp1, shift_temp2, optimal_shift, shift_samples_per_chan
 
 
-def check_template_pair(template_1, template_2, chan_covariance_mats, sort_info):
+def check_template_pair(
+    template_1,
+    template_2,
+    chan_covariance_mats,
+    sort_info,
+):
     """
     Intended for testing whether a sum of templates is equal to a given
     template. Templates are assumed to be aligned with one another as no
@@ -518,7 +528,11 @@ class SegSummary(object):
             )
 
     def confusion_test_two_units(
-        self, n1_ind, n2_ind, chan_covariance_mats, max_shift=None
+        self,
+        n1_ind,
+        n2_ind,
+        chan_covariance_mats,
+        max_shift=None,
     ):
         shift_temp1, shift_temp2, _, _ = optimal_align_templates(
             self.summaries[n1_ind]["bp_template"],
@@ -542,7 +556,11 @@ class SegSummary(object):
         return confused
 
     def re_sort_two_units(
-        self, clips_1, clips_2, use_weights=True, curr_chan_inds=None
+        self,
+        clips_1,
+        clips_2,
+        use_weights=True,
+        curr_chan_inds=None,
     ):
         if self.sort_info["add_peak_valley"] and curr_chan_inds is None:
             raise ValueError("Must give curr_chan_inds if using peak valley.")
@@ -573,7 +591,6 @@ class SegSummary(object):
             match_cluster_size=self.sort_info["match_cluster_size"],
             check_splits=self.sort_info["check_splits"],
         )
-
 
         curr_labels, n_per_label = np.unique(neuron_labels, return_counts=True)
         if curr_labels.size == 1:
@@ -664,7 +681,6 @@ class SegSummary(object):
             check_splits=self.sort_info["check_splits"],
         )
 
-
         label_is_1 = neuron_labels == 1
         label_is_2 = neuron_labels == 2
         if np.all(label_is_1) or np.all(label_is_2):
@@ -744,7 +760,10 @@ class SegSummary(object):
                 is_merged = True
             elif chan_covariance_mats is not None:
                 is_merged = self.confusion_test_two_units(
-                    best_pair[0], best_pair[1], chan_covariance_mats, max_shift=None
+                    best_pair[0],
+                    best_pair[1],
+                    chan_covariance_mats,
+                    max_shift=None,
                 )
             else:
                 curr_chan_inds = np.arange(0, shift_samples_per_chan, dtype=np.int64)

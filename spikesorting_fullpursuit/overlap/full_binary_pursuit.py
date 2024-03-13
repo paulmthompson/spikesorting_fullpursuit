@@ -263,6 +263,7 @@ def full_binary_pursuit(
                 # This work item found nothing (or raised an exception)
                 seg_data.append([[], [], [], [], w_item["ID"]])
                 continue
+
             clips, _ = get_clips(
                 clips_dict,
                 voltage,
