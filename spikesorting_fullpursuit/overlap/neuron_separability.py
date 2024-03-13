@@ -60,16 +60,28 @@ def check_template_pair(
     template_1,
     template_2,
     chan_covariance_mats,
-    sort_info,
+    n_chans,
+    template_samples_per_chan,
 ):
     """
     Intended for testing whether a sum of templates is equal to a given
     template. Templates are assumed to be aligned with one another as no
     shifting is performed. Probability of confusiong the templates is
     returned. This confusion is symmetric, i.e. p_confusion template_1 assigned
-    to template_2 equals p_confusion template_2 assigned to template_1."""
-    n_chans = sort_info["n_channels"]
-    template_samples_per_chan = sort_info["n_samples_per_chan"]
+    to template_2 equals p_confusion template_2 assigned to template_1.
+
+    Parameters
+    ----------
+    template_1
+    template_2
+    chan_covariance_mats
+    n_chans
+    template_samples_per_chan
+
+    Returns
+    -------
+
+    """
 
     # Compute separability given V = template_1.
     E_L_t1 = 0.5 * np.dot(template_1, template_1)

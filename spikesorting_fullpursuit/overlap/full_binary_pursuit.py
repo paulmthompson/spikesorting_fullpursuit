@@ -435,7 +435,8 @@ def full_binary_pursuit(
             bp_templates[t_ind, :],
             shift_temp,
             chan_covariance_mats,
-            sort_info,
+            sort_info["n_channels"],
+            sort_info["n_samples_per_chan"],
         )
         if p_confusion > confusion_threshold:
             templates_to_delete[t_ind] = True
