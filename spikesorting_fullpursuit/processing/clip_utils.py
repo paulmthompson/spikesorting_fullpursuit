@@ -199,28 +199,50 @@ def cleanup_clusters(multi_channel_clips, neuron_labels):
     return keep_clips
 
 
-def calculate_robust_template(clips):
-    if clips.shape[0] == 1 or clips.ndim == 1:
+def calculate_robust_template(all_channel_clips):
+    """
+    Calculates a robust template using approximately
+    75th quantile from median absolute deviation
+
+    References:
+    https://stats.stackexchange.com/questions/123895/mad-formula-for-outlier-detection
+
+    Boris Iglewicz and David Hoaglin (1993), "Volume 16: How to Detect and Handle Outliers",
+    The ASQC Basic References in Quality Control: Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
+
+    Parameters
+    ----------
+    all_channel_clips: np.ndarray | memmap
+        2D matrix of clips where first dimension is length of event_indices
+        and second dimension is clip for each channel (not just neighbors)
+
+    Returns
+    -------
+
+    """
+    if all_channel_clips.shape[0] == 1 or all_channel_clips.ndim == 1:
         # Only 1 clip so nothing to average over
-        return np.squeeze(clips)  # Return 1D array
-    robust_template = np.zeros((clips.shape[1],), dtype=clips.dtype)
-    sample_medians = np.median(clips, axis=0)
-    for sample in range(0, clips.shape[1]):
-        # Compute MAD with standard deviation conversion factor
+        return np.squeeze(all_channel_clips)  # Return 1D array
+
+    robust_template = np.zeros((all_channel_clips.shape[1],), dtype=all_channel_clips.dtype)
+    sample_medians = np.median(all_channel_clips, axis=0)
+    for sample in range(0, all_channel_clips.shape[1]):
+        # Compute median absolute deviation (MAD) with standard deviation conversion factor
+        # https://stats.stackexchange.com/questions/123895/mad-formula-for-outlier-detection
         sample_MAD = (
-            np.median(np.abs(clips[:, sample] - sample_medians[sample])) / 0.6745
+                np.median(np.abs(all_channel_clips[:, sample] - sample_medians[sample])) / 0.6745
         )
         # Samples within 1 MAD
         select_1MAD = np.logical_and(
-            clips[:, sample] > sample_medians[sample] - sample_MAD,
-            clips[:, sample] < sample_medians[sample] + sample_MAD,
+            all_channel_clips[:, sample] > sample_medians[sample] - sample_MAD,
+            all_channel_clips[:, sample] < sample_medians[sample] + sample_MAD,
         )
         if ~np.any(select_1MAD):
             # Nothing within 1 MAD STD so just fall back on median
             robust_template[sample] = sample_medians[sample]
         else:
             # Robust template as median of samples within 1 MAD
-            robust_template[sample] = np.median(clips[select_1MAD, sample])
+            robust_template[sample] = np.median(all_channel_clips[select_1MAD, sample])
 
     return robust_template
 
