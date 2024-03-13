@@ -31,6 +31,17 @@ def wiener(
     This function optimally smooths the noise and signal power spectra using
     a running average specified by `smooth`. The smooth parameter is provided
     in integer samples (i.e., the boxcar window).
+
+    Parameters
+    ----------
+    original_voltage
+    signal_voltage
+    noise_voltage
+    smooth
+
+    Returns
+    -------
+
     """
     if original_voltage.ndim == 1:
         original_voltage = np.expand_dims(original_voltage, 0)
@@ -89,6 +100,17 @@ def wiener_all(
     using the same filter for every channel. The idea is to help avoid
     potential pitfalls of using a very small/noisy "signal" on channels without
     threshold crossings that could in turn amplify this noise via filtering.
+
+    Parameters
+    ----------
+    original_voltage
+    signal_voltage
+    noise_voltage
+    smooth
+
+    Returns
+    -------
+
     """
     assert (signal_voltage.shape == original_voltage.shape) and (
         noise_voltage.shape == original_voltage.shape
@@ -150,6 +172,19 @@ def wiener_filter_segment(
     """
     Does the Wiener filter on the segment voltage provided. The new filtered
     voltage OVERWRITES the input segment voltage buffers/memmaps!
+
+    Parameters
+    ----------
+    work_items
+    data_dict
+    seg_number
+    sort_info
+    v_dtype
+    use_memmap
+
+    Returns
+    -------
+
     """
 
     # Initialize voltages
@@ -276,14 +311,20 @@ def wiener_filter_segment(
             sort_info["wiener_filter_smoothing"] * voltage.size
         ) / (sort_info["sampling_rate"] // 2)
         filtered_voltage = wiener_all(
-            voltage, volt_signal, volt_noise, wiener_filter_smooth_indices
+            voltage,
+            volt_signal,
+            volt_noise,
+            wiener_filter_smooth_indices,
         )
     else:
         wiener_filter_smooth_indices = (
             sort_info["wiener_filter_smoothing"] * voltage.shape[1]
         ) / (sort_info["sampling_rate"] // 2)
         filtered_voltage = wiener(
-            voltage, volt_signal, volt_noise, wiener_filter_smooth_indices
+            voltage,
+            volt_signal,
+            volt_noise,
+            wiener_filter_smooth_indices,
         )
 
     # Rescale filtered voltage to original space and Copy Winer filter segment

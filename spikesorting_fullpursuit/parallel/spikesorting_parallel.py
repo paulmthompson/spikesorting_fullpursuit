@@ -164,14 +164,10 @@ def spike_sorting_settings_parallel(**kwargs):
         if key in ["segment_duration", "segment_overlap"]:
             # Note actual relative values for overlap are checked in main function
             if settings[key] <= 0:
-                raise ValueError(
-                    f"Input setting '{key}' must be a postive number"
-                )
+                raise ValueError(f"Input setting '{key}' must be a postive number")
         if key in ["check_components", "max_components"]:
             if settings[key] <= 0 or type(settings[key]) != int:
-                raise ValueError(
-                    f"Input setting '{key}' must be a postive integer"
-                )
+                raise ValueError(f"Input setting '{key}' must be a postive integer")
         if key in [
             "min_firing_rate",
             "sigma_bp_noise",

@@ -36,7 +36,10 @@ def test_threshold_counts():
             crossings,
             n_crossings,
         ) = identify_threshold_crossings(
-            voltages[chan, :], sampling_rate, n_samples, threshold_list[chan]
+            voltages[chan, :],
+            sampling_rate,
+            n_samples,
+            threshold_list[chan],
         )
 
         print(n_crossings)
