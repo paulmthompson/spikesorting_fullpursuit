@@ -217,12 +217,16 @@ class SegSummary(object):
         self.n_items = len(work_items)
         self.make_summaries()
 
-    def get_snr(self, neuron):
-        """Get SNR on the main channel relative to 3 STD of background noise."""
-        background_noise_std = neuron["threshold"] / self.sort_info["sigma"]
-        main_template = neuron["template"][
-            neuron["main_win"][0] : neuron["main_win"][1]
-        ]
+    def get_snr(
+        self,
+        main_template,
+        threshold,
+        sigma,
+    ):
+        """
+        Get SNR on the main channel relative to 3 STD of background noise.
+        """
+        background_noise_std = threshold / sigma
         temp_range = np.amax(main_template) - np.amin(main_template)
         return temp_range / (3 * background_noise_std)
 
@@ -277,7 +281,6 @@ class SegSummary(object):
                 raise ValueError("Clips must include data for all channels")
             cluster_labels = np.unique(self.sort_data[work_item_index][1])
             for neuron_label in cluster_labels:
-
                 neuron = self.create_neuron_summary(work_item_index, neuron_label)
 
                 if len(neuron["high_snr_neighbors"]) == 0:
@@ -316,9 +319,11 @@ class SegSummary(object):
         spike_order = np.argsort(neuron["spike_indices"], kind="stable")
         neuron["spike_indices"] = neuron["spike_indices"][spike_order]
         neuron["clips"] = neuron["clips"][spike_order, :]
+
         # Set duplicate tolerance as full clip width since we are only
         # looking to get a good template here
         neuron["duplicate_tol_inds"] = self.full_clip_inds
+
         # Remove any identical index duplicates (either from error or
         # from combining overlapping segments), preferentially keeping
         # the waveform best aligned to the template
@@ -333,6 +338,7 @@ class SegSummary(object):
         )
         neuron["spike_indices"] = neuron["spike_indices"][keep_bool]
         neuron["clips"] = neuron["clips"][keep_bool, :]
+
         # Recompute template and store output
         neuron["template"] = np.median(neuron["clips"], axis=0).astype(
             neuron["clips"].dtype
@@ -340,24 +346,20 @@ class SegSummary(object):
         # Get SNR for each channel separately
         neuron["snr_by_chan"] = np.zeros(self.sort_info["n_channels"])
         for chan in range(0, self.sort_info["n_channels"]):
-            # Reset window and threshold that will be used by get_snr
-            neuron["main_win"] = [
-                self.sort_info["n_samples_per_chan"] * chan,
-                self.sort_info["n_samples_per_chan"] * (chan + 1),
-            ]
-            neuron["threshold"] = self.work_items[work_item_index]["thresholds"][chan]
-            neuron["snr_by_chan"][chan] = self.get_snr(neuron)
-            if chan == neuron["channel"]:
-                neuron["snr"] = neuron["snr_by_chan"][chan]
-        # Reset these to actual values. We still keep channel based on
-        # the work item that found this neuron.
-        neuron["main_win"] = [
-            self.sort_info["n_samples_per_chan"] * neuron["channel"],
-            self.sort_info["n_samples_per_chan"] * (neuron["channel"] + 1),
-        ]
-        neuron["threshold"] = self.work_items[work_item_index]["thresholds"][
-            neuron["channel"]
-        ]
+
+            this_template_start_ind = self.sort_info["n_samples_per_chan"] * chan
+            this_template_end_ind = self.sort_info["n_samples_per_chan"] * (chan + 1)
+
+            this_channel_threshold = self.work_items[work_item_index]["thresholds"][chan]
+
+            neuron["snr_by_chan"][chan] = self.get_snr(
+                neuron["template"][this_template_start_ind : this_template_end_ind],
+                this_channel_threshold,
+                self.sort_info["sigma"],
+            )
+
+        neuron["snr"] = neuron["snr_by_chan"][neuron["channel"]]
+
         # Preserve template over full neighborhood for certain comparisons
         neuron["full_template"] = np.copy(neuron["template"])
         # Set new neighborhood of all channels with SNR over SNR threshold.
@@ -367,9 +369,7 @@ class SegSummary(object):
         for chan in range(0, self.sort_info["n_channels"]):
             if neuron["snr_by_chan"][chan] > 0.5:
                 high_snr_neighbors.append(chan)
-        neuron["high_snr_neighbors"] = np.array(
-            high_snr_neighbors, dtype=np.int64
-        )
+        neuron["high_snr_neighbors"] = np.array(high_snr_neighbors, dtype=np.int64)
         neuron["deleted_as_redundant"] = False
         return neuron
 
