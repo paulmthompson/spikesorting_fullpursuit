@@ -2164,8 +2164,12 @@ def spike_sort_parallel(Probe, **kwargs):
                     f"Start full binary pursuit on segment \
                     {seg_number + 1}/{len(segment_onsets)}"
                 )
+
+            # Determine the set of work items for this segment
+            seg_w_items = [w for w in work_items if w["seg_number"] == seg_number]
+
             seg_data = full_binary_pursuit.full_binary_pursuit(
-                work_items,
+                seg_w_items,
                 data_dict,
                 seg_number,
                 sort_info,

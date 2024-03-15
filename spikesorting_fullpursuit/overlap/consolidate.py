@@ -196,7 +196,7 @@ def get_snr_across_all_channels(
     ----------
     all_channel_template: np.ndarray
         template across all channels. Each channel is n_sample_per_chan
-    thresholds: np.ndarray
+    thresholds: np.ndarray[float]
         thresholds for each channel
     n_channels: int
         total number of channels
@@ -214,9 +214,7 @@ def get_snr_across_all_channels(
         this_template_start_ind = n_samples_per_chan * chan
         this_template_end_ind = n_samples_per_chan * (chan + 1)
 
-        this_channel_threshold = thresholds[
-            chan
-        ]
+        this_channel_threshold = thresholds[chan]
 
         snr_by_channel[chan] = get_snr(
             all_channel_template[this_template_start_ind:this_template_end_ind],
@@ -235,7 +233,7 @@ class SegSummary(object):
     Attributes
     ----------
     sort_data: List
-        4 Element list containing 5 items
+        List containing 5 items
         crossings
         neuron_labels
         clips

@@ -198,7 +198,7 @@ def get_binary_pursuit_clip_width(
 
 
 def full_binary_pursuit(
-    work_items,
+    seg_w_items,
     data_dict,
     seg_number,
     sort_info,
@@ -218,34 +218,27 @@ def full_binary_pursuit(
     is finally formatted for final output.
     """
     # Get numpy view of voltage for clips and binary pursuit
-    if use_memmap:
-        voltage_mmap = MemMapClose(
-            data_dict["seg_v_files"][seg_number][0],
-            dtype=data_dict["seg_v_files"][seg_number][1],
-            mode="r",
-            shape=data_dict["seg_v_files"][seg_number][2],
-        )
-        voltage = memmap_to_mem(
-            voltage_mmap, dtype=data_dict["seg_v_files"][seg_number][1]
-        )
-        if isinstance(voltage_mmap, np.memmap):
-            voltage_mmap._mmap.close()
-            del voltage_mmap
-    else:
-        seg_volts_buffer = data_dict["segment_voltages"][seg_number][0]
-        seg_volts_shape = data_dict["segment_voltages"][seg_number][1]
-        voltage = np.frombuffer(seg_volts_buffer, dtype=v_dtype).reshape(
-            seg_volts_shape
-        )
+    voltage = get_voltage_for_bp(
+        data_dict,
+        seg_number,
+        use_memmap,
+        v_dtype,
+    )
 
     all_chan_nbrs = np.arange(0, voltage.shape[0], dtype=np.int64)
+
+    # Reset neighbors to all channels for full binary pursuit
+    original_neighbors = []
+    for w_item in seg_w_items:
+        if w_item["ID"] in data_dict["results_dict"].keys():
+            original_neighbors.append(w_item["neighbors"])
+            w_item["neighbors"] = np.copy(all_chan_nbrs)
+
     original_clip_width = [s for s in sort_info["clip_width"]]
     original_n_samples_per_chan = copy(sort_info["n_samples_per_chan"])
+
     # Max shift indices to check for binary pursuit overlaps
     n_max_shift_inds = original_n_samples_per_chan - 1
-
-    # Determine the set of work items for this segment
-    seg_w_items = [w for w in work_items if w["seg_number"] == seg_number]
 
     # Make a dictionary with all info needed for get_clips
     clips_dict = {
@@ -256,13 +249,8 @@ def full_binary_pursuit(
 
     # Need to build this in format used for consolidate functions
     seg_data = []
-    original_neighbors = []
     for w_item in seg_w_items:
         if w_item["ID"] in data_dict["results_dict"].keys():
-            # Reset neighbors to all channels for full binary pursuit
-            original_neighbors.append(w_item["neighbors"])
-            w_item["neighbors"] = np.copy(all_chan_nbrs)
-
             if len(data_dict["results_dict"][w_item["ID"]][0]) == 0:
                 # This work item found nothing (or raised an exception)
                 seg_data.append([[], [], [], [], w_item["ID"]])
@@ -279,8 +267,8 @@ def full_binary_pursuit(
             # Insert list of crossings, labels, clips, binary pursuit spikes
             seg_data.append(
                 [
-                    data_dict["results_dict"][w_item["ID"]][0], #crossings
-                    data_dict["results_dict"][w_item["ID"]][1], #labels
+                    data_dict["results_dict"][w_item["ID"]][0],  # crossings
+                    data_dict["results_dict"][w_item["ID"]][1],  # labels
                     clips,
                     np.zeros(
                         len(data_dict["results_dict"][w_item["ID"]][0]), dtype="bool"
@@ -481,7 +469,9 @@ def full_binary_pursuit(
     # pursuit templates is accounted for
     seg_summary.set_bp_templates(bp_templates)
     seg_summary.sharpen_across_chans(chan_covariance_mats)
-    bp_templates = [neuron_summary["bp_template"] for neuron_summary in seg_summary.summaries]
+    bp_templates = [
+        neuron_summary["bp_template"] for neuron_summary in seg_summary.summaries
+    ]
     if sort_info["verbose"]:
         print(
             "Removing confused pairs reduced number of templates to", len(bp_templates)
@@ -652,6 +642,29 @@ def full_binary_pursuit(
             seg_data.append([[], [], [], [], curr_item["ID"]])
 
     return seg_data
+
+
+def get_voltage_for_bp(data_dict, seg_number, use_memmap, v_dtype):
+    if use_memmap:
+        voltage_mmap = MemMapClose(
+            data_dict["seg_v_files"][seg_number][0],
+            dtype=data_dict["seg_v_files"][seg_number][1],
+            mode="r",
+            shape=data_dict["seg_v_files"][seg_number][2],
+        )
+        voltage = memmap_to_mem(
+            voltage_mmap, dtype=data_dict["seg_v_files"][seg_number][1]
+        )
+        if isinstance(voltage_mmap, np.memmap):
+            voltage_mmap._mmap.close()
+            del voltage_mmap
+    else:
+        seg_volts_buffer = data_dict["segment_voltages"][seg_number][0]
+        seg_volts_shape = data_dict["segment_voltages"][seg_number][1]
+        voltage = np.frombuffer(seg_volts_buffer, dtype=v_dtype).reshape(
+            seg_volts_shape
+        )
+    return voltage
 
 
 def get_channel_covariance_matrix(
