@@ -48,6 +48,7 @@ def get_binary_pursuit_clip_width(
         bp_cw_max = max(np.abs(sort_info["clip_width"]))
         bp_clip_width = [-1 * bp_cw_max, bp_cw_max]
         return bp_clip_width, original_clip_starts, original_clip_stops
+
     # Start by building the set of all clips for all units in segment
     all_events = []
     for w_item in seg_w_items:
@@ -248,52 +249,16 @@ def full_binary_pursuit(
     }
 
     # Need to build this in format used for consolidate functions
-    seg_data = []
-    for w_item in seg_w_items:
-        if w_item["ID"] in data_dict["results_dict"].keys():
-            if len(data_dict["results_dict"][w_item["ID"]][0]) == 0:
-                # This work item found nothing (or raised an exception)
-                seg_data.append([[], [], [], [], w_item["ID"]])
-                continue
-
-            clips, _ = get_clips(
-                clips_dict,
-                voltage,
-                w_item["neighbors"],
-                data_dict["results_dict"][w_item["ID"]][0],
-                clip_width_s=sort_info["clip_width"],
-            )
-
-            # Insert list of crossings, labels, clips, binary pursuit spikes
-            seg_data.append(
-                [
-                    data_dict["results_dict"][w_item["ID"]][0],  # crossings
-                    data_dict["results_dict"][w_item["ID"]][1],  # labels
-                    clips,
-                    np.zeros(
-                        len(data_dict["results_dict"][w_item["ID"]][0]), dtype="bool"
-                    ),
-                    w_item["ID"],
-                ]
-            )
-            if type(seg_data[-1][0][0]) == np.ndarray:
-                if seg_data[-1][0][0].size > 0:
-                    # Adjust crossings for segment start time
-                    seg_data[-1][0][0] += w_item["index_window"][0]
-        else:
-            # This work item found nothing (or raised an exception)
-            seg_data.append([[], [], [], [], w_item["ID"]])
-
-    # Pass a copy of current state of sort info to seg_summary. Actual sort_info
-    # will be altered later but SegSummary must follow original data
-    seg_summary = SegSummary(
-        seg_data,
+    seg_summary = create_segment_summary(
+        absolute_refractory_period,
+        clips_dict,
+        data_dict,
         seg_w_items,
-        deepcopy(sort_info),
+        sort_info,
         v_dtype,
-        absolute_refractory_period=absolute_refractory_period,
-        verbose=False,
+        voltage,
     )
+
     if len(seg_summary.summaries) == 0:
         print("Found no neuron templates for binary pursuit")
         return [[[], [], [], [], None]]
@@ -316,53 +281,18 @@ def full_binary_pursuit(
     # (This is slightly confusing but keeps certain code compatability.
     # We will reset it to original value at the end.)
     (
-        sort_info["clip_width"],
+        bp_reduction_samples_per_chan,
         original_clip_starts,
         original_clip_stops,
-    ) = get_binary_pursuit_clip_width(
-        seg_w_items,
+    ) = assign_bp_clip_width(
         clips_dict,
-        voltage,
         data_dict,
+        original_clip_width,
+        original_n_samples_per_chan,
+        seg_w_items,
         sort_info,
+        voltage,
     )
-    # Store newly assigned binary pursuit clip width for final output
-    if "binary_pursuit_clip_width" not in sort_info:
-        sort_info["binary_pursuit_clip_width"] = [0, 0]
-    sort_info["binary_pursuit_clip_width"][0] = min(
-        sort_info["clip_width"][0], sort_info["binary_pursuit_clip_width"][0]
-    )
-    sort_info["binary_pursuit_clip_width"][1] = max(
-        sort_info["clip_width"][1], sort_info["binary_pursuit_clip_width"][1]
-    )
-    bp_chan_win, _ = time_window_to_samples(
-        sort_info["clip_width"], sort_info["sampling_rate"]
-    )
-    sort_info["n_samples_per_chan"] = bp_chan_win[1] - bp_chan_win[0]
-    # This should be same as input samples per chan but could probably
-    # be off by one due to rounding error of the clip width so
-    # need to recompute
-    bp_reduction_samples_per_chan = original_clip_stops[0] - original_clip_starts[0]
-    if bp_reduction_samples_per_chan != original_n_samples_per_chan:
-        # This should be coded so this never happens, but if it does it could be a difficult to notice disaster during consolidate
-        raise RuntimeError(
-            "Template reduction from binary pursuit does not have the same number of samples as original!"
-        )
-    if sort_info["verbose"]:
-        print(
-            "Binary pursuit clip width is",
-            sort_info["clip_width"],
-            "from",
-            original_clip_width,
-        )
-
-    if sort_info["verbose"]:
-        print(
-            "Binary pursuit samples per chan",
-            sort_info["n_samples_per_chan"],
-            "from",
-            original_n_samples_per_chan,
-        )
 
     # seg_summary.sharpen_across_chans()
     # if sort_info['verbose']: print("Sharpening reduced number of templates to", len(seg_summary.summaries))
@@ -642,6 +572,122 @@ def full_binary_pursuit(
             seg_data.append([[], [], [], [], curr_item["ID"]])
 
     return seg_data
+
+
+def create_segment_summary(
+    absolute_refractory_period,
+    clips_dict,
+    data_dict,
+    seg_w_items,
+    sort_info,
+    v_dtype,
+    voltage,
+):
+    seg_data = []
+    for w_item in seg_w_items:
+        if w_item["ID"] in data_dict["results_dict"].keys():
+            if len(data_dict["results_dict"][w_item["ID"]][0]) == 0:
+                # This work item found nothing (or raised an exception)
+                seg_data.append([[], [], [], [], w_item["ID"]])
+                continue
+
+            clips, _ = get_clips(
+                clips_dict,
+                voltage,
+                w_item["neighbors"],
+                data_dict["results_dict"][w_item["ID"]][0],
+                clip_width_s=sort_info["clip_width"],
+            )
+
+            # Insert list of crossings, labels, clips, binary pursuit spikes
+            seg_data.append(
+                [
+                    data_dict["results_dict"][w_item["ID"]][0],  # crossings
+                    data_dict["results_dict"][w_item["ID"]][1],  # labels
+                    clips,
+                    np.zeros(
+                        len(data_dict["results_dict"][w_item["ID"]][0]), dtype="bool"
+                    ),
+                    w_item["ID"],
+                ]
+            )
+            if type(seg_data[-1][0][0]) == np.ndarray:
+                if seg_data[-1][0][0].size > 0:
+                    # Adjust crossings for segment start time
+                    seg_data[-1][0][0] += w_item["index_window"][0]
+        else:
+            # This work item found nothing (or raised an exception)
+            seg_data.append([[], [], [], [], w_item["ID"]])
+    # Pass a copy of current state of sort info to seg_summary. Actual sort_info
+    # will be altered later but SegSummary must follow original data
+    seg_summary = SegSummary(
+        seg_data,
+        seg_w_items,
+        deepcopy(sort_info),
+        v_dtype,
+        absolute_refractory_period=absolute_refractory_period,
+        verbose=False,
+    )
+    return seg_summary
+
+
+def assign_bp_clip_width(
+    clips_dict,
+    data_dict,
+    original_clip_width,
+    original_n_samples_per_chan,
+    seg_w_items,
+    sort_info,
+    voltage,
+):
+    (
+        sort_info["clip_width"],
+        original_clip_starts,
+        original_clip_stops,
+    ) = get_binary_pursuit_clip_width(
+        seg_w_items,
+        clips_dict,
+        voltage,
+        data_dict,
+        sort_info,
+    )
+    # Store newly assigned binary pursuit clip width for final output
+    if "binary_pursuit_clip_width" not in sort_info:
+        sort_info["binary_pursuit_clip_width"] = [0, 0]
+    sort_info["binary_pursuit_clip_width"][0] = min(
+        sort_info["clip_width"][0], sort_info["binary_pursuit_clip_width"][0]
+    )
+    sort_info["binary_pursuit_clip_width"][1] = max(
+        sort_info["clip_width"][1], sort_info["binary_pursuit_clip_width"][1]
+    )
+    bp_chan_win, _ = time_window_to_samples(
+        sort_info["clip_width"], sort_info["sampling_rate"]
+    )
+    sort_info["n_samples_per_chan"] = bp_chan_win[1] - bp_chan_win[0]
+    # This should be same as input samples per chan but could probably
+    # be off by one due to rounding error of the clip width so
+    # need to recompute
+    bp_reduction_samples_per_chan = original_clip_stops[0] - original_clip_starts[0]
+    if bp_reduction_samples_per_chan != original_n_samples_per_chan:
+        # This should be coded so this never happens, but if it does it could be a difficult to notice disaster during consolidate
+        raise RuntimeError(
+            "Template reduction from binary pursuit does not have the same number of samples as original!"
+        )
+    if sort_info["verbose"]:
+        print(
+            "Binary pursuit clip width is",
+            sort_info["clip_width"],
+            "from",
+            original_clip_width,
+        )
+    if sort_info["verbose"]:
+        print(
+            "Binary pursuit samples per chan",
+            sort_info["n_samples_per_chan"],
+            "from",
+            original_n_samples_per_chan,
+        )
+    return bp_reduction_samples_per_chan, original_clip_starts, original_clip_stops
 
 
 def get_voltage_for_bp(data_dict, seg_number, use_memmap, v_dtype):
