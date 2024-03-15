@@ -279,8 +279,8 @@ def full_binary_pursuit(
             # Insert list of crossings, labels, clips, binary pursuit spikes
             seg_data.append(
                 [
-                    data_dict["results_dict"][w_item["ID"]][0],
-                    data_dict["results_dict"][w_item["ID"]][1],
+                    data_dict["results_dict"][w_item["ID"]][0], #crossings
+                    data_dict["results_dict"][w_item["ID"]][1], #labels
                     clips,
                     np.zeros(
                         len(data_dict["results_dict"][w_item["ID"]][0]), dtype="bool"

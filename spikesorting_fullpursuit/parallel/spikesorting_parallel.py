@@ -1492,10 +1492,37 @@ def deploy_parallel_sort(
     init_dict,
     settings,
 ):
-    """This function takes the basic pre-made inputs for calling
+    """
+    This function takes the basic pre-made inputs for calling
     spike_sort_item_parallel and handles deployment and deletion of the
     parallel processes for each work item and initialization of the global
     "data_dict" from the inputs of "init_dict".
+
+    Parameters
+    ----------
+    manager
+    cpu_queue
+    cpu_alloc
+    work_items: List
+        List of dictionaries, one for each channel in a segment
+        Entries of the dictionary are as follows:
+            channel: int
+                channel ID
+            neighbors: np.ndarray
+                array of channels (including channel of interest) nearby channel
+            chan_neighbor_ind: int
+                index of channel in neighbors array
+            n_samples: segment_offsets[x] - segment_onsets[x],
+            seg_number: x,
+            index_window: [segment_onsets[x], segment_offsets[x]],
+            overlap": settings["segment_overlap"],
+            thresholds: thresholds_list[x],
+    init_dict
+    settings
+
+    Returns
+    -------
+
     """
     # Need to reset certain elements of init_dict, but NOT THE VOLTAGE!
     init_dict["results_dict"] = manager.dict()
@@ -1610,14 +1637,9 @@ def deploy_parallel_sort(
 
         if not settings["test_flag"]:
             print(
-                "Starting item {0}/{1} on CPUs {2} for channel {3} \
-                    segment {4}".format(
-                    wi_ind + 1,
-                    len(work_items),
-                    use_cpus,
-                    w_item["channel"],
-                    w_item["seg_number"] + 1,
-                )
+                f"Starting item {wi_ind + 1}/{len(work_items)} \
+                on CPUs {use_cpus} for channel {w_item['channel']} \
+                segment {w_item['seg_number'] + 1}"
             )
             time.sleep(0.5)  # NEED SLEEP SO PROCESSES AREN'T MADE TOO FAST AND FAIL!!!
 
@@ -1630,13 +1652,9 @@ def deploy_parallel_sort(
             proc.start()
         else:
             print(
-                "Starting item {0}/{1} on CPUs {2} for channel {3} segment {4}".format(
-                    wi_ind + 1,
-                    len(work_items),
-                    use_cpus,
-                    w_item["channel"],
-                    w_item["seg_number"] + 1,
-                )
+                f"Starting item {wi_ind + 1}/{len(work_items)} \
+                on CPUs {use_cpus} for channel {w_item['channel']} \
+                segment {w_item['seg_number'] + 1}"
             )
             spike_sort_item_parallel(data_dict, use_cpus, w_item, settings)
             print("finished sort one item")
@@ -2007,7 +2025,9 @@ def spike_sort_parallel(Probe, **kwargs):
                 # Check potential threshold problems, especially due to artifact removal
                 if np.any(thresholds_list[x] == 0):
                     raise RuntimeError(
-                        "At least 1 work item channel has a voltage threshold value of zero! Either a segment/channel has no data or has been made to have a median value of zero possibly due to inappropriate artifact detection parameters."
+                        "At least 1 work item channel has a voltage threshold value of zero! \
+                        Either a segment/channel has no data or has been made to have a median \
+                        value of zero possibly due to inappropriate artifact detection parameters."
                     )
 
         if (not settings["test_flag"]) and (not settings["seg_work_order"]):
@@ -2091,7 +2111,12 @@ def spike_sort_parallel(Probe, **kwargs):
             if settings["verbose"]:
                 print("Start clustering for Wiener filter templates.")
             process_errors_list_wf = deploy_parallel_sort(
-                manager, cpu_queue, cpu_alloc, work_items, init_dict, wiener_settings
+                manager,
+                cpu_queue,
+                cpu_alloc,
+                work_items,
+                init_dict,
+                wiener_settings,
             )
 
             # Set threads/processes back to normal for Wiener filter and filter
@@ -2102,9 +2127,7 @@ def spike_sort_parallel(Probe, **kwargs):
             for seg_number in range(0, len(segment_onsets)):
                 if settings["verbose"]:
                     print(
-                        "Start Wiener filter on segment {0}/{1}".format(
-                            seg_number + 1, len(segment_onsets)
-                        )
+                        f"Start Wiener filter on segment {seg_number + 1}/{len(segment_onsets)}"
                     )
                 # This will overwrite the segment voltage data!
                 filtered_voltage = wiener_filter_segment(
@@ -2123,7 +2146,12 @@ def spike_sort_parallel(Probe, **kwargs):
 
         # Re-deploy parallel clustering now using the Wiener filtered voltage
         process_errors_list = deploy_parallel_sort(
-            manager, cpu_queue, cpu_alloc, work_items, init_dict, settings
+            manager,
+            cpu_queue,
+            cpu_alloc,
+            work_items,
+            init_dict,
+            settings,
         )
 
         # Set threads/processes back to normal now that we are done
@@ -2133,9 +2161,8 @@ def spike_sort_parallel(Probe, **kwargs):
         for seg_number in range(0, len(segment_onsets)):
             if settings["verbose"]:
                 print(
-                    "Start full binary pursuit on segment {0}/{1}".format(
-                        seg_number + 1, len(segment_onsets)
-                    )
+                    f"Start full binary pursuit on segment \
+                    {seg_number + 1}/{len(segment_onsets)}"
                 )
             seg_data = full_binary_pursuit.full_binary_pursuit(
                 work_items,

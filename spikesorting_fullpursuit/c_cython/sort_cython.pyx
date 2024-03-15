@@ -330,9 +330,14 @@ def optimal_reconstruction_pca_order_F(np.ndarray[double, ndim=2, mode="fortran"
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)    # turn division by zero checking off
-def find_overlap_templates(np.ndarray[float, ndim=2] templates,
-        Py_ssize_t n_samples_per_chan, Py_ssize_t n_chans, int64_t n_pre_inds,
-        int64_t n_post_inds, np.ndarray[int64_t, ndim=1] n_template_spikes):
+def find_overlap_templates(
+        np.ndarray[float, ndim=2] templates,
+        Py_ssize_t n_samples_per_chan,
+        Py_ssize_t n_chans,
+        int64_t n_pre_inds,
+        int64_t n_post_inds,
+        np.ndarray[int64_t, ndim=1] n_template_spikes
+):
 
     cdef Py_ssize_t chan, shift
     def get_shifted_template(template, shift):

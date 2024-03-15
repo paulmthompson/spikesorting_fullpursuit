@@ -157,9 +157,32 @@ def check_template_pair(
 
 
 class SegSummary(object):
-    """Main class that gathers all the sorted data and consolidates it within
+    """
+    Main class that gathers all the sorted data and consolidates it within
     each segment. This is called after clustering, but before running binary
     pursuit to consolidate units across channels within each segment.
+
+    Attributes
+    ----------
+    sort_data: List
+        4 Element list containing 5 items
+        crossings
+        neuron_labels
+        clips
+        binary_pursuit_spikes (boolean array)
+        work_item_id
+    work_items
+    sort_info
+    v_dtype
+    absolute_refractory_period: float
+
+    verbose: bool
+
+    half_clip_inds:
+    full_clip_inds:
+    n_items:
+    summaries:
+
     """
 
     def __init__(
@@ -546,7 +569,10 @@ class SegSummary(object):
         # Hard coded at 10% errors which is roughly useful without being too strict
         confusion_threshold = 0.1
         p_confusion = check_template_pair(
-            shift_temp1, shift_temp2, chan_covariance_mats, self.sort_info
+            shift_temp1,
+            shift_temp2,
+            chan_covariance_mats,
+            self.sort_info,
         )
         if p_confusion > confusion_threshold:
             confused = True
