@@ -386,18 +386,18 @@ def full_binary_pursuit(
     bp_templates = []
     clip_template_residuals = []
     n_template_spikes = []
-    for n in seg_summary.summaries:
+    for neuron_summary in seg_summary.summaries:
         clips, _ = get_clips(
             clips_dict,
             voltage,
             all_chan_nbrs,
-            n["spike_indices"],
+            neuron_summary["spike_indices"],
             clip_width_s=sort_info["clip_width"],
         )
         robust_template = calculate_robust_template(clips)
         bp_templates.append(robust_template)
         clip_template_residuals.append(clips - robust_template)
-        n_template_spikes.append(n["spike_indices"].shape[0])
+        n_template_spikes.append(neuron_summary["spike_indices"].shape[0])
 
     bp_templates = np.vstack(bp_templates)  # N_units X template_width
 
@@ -481,7 +481,7 @@ def full_binary_pursuit(
     # pursuit templates is accounted for
     seg_summary.set_bp_templates(bp_templates)
     seg_summary.sharpen_across_chans(chan_covariance_mats)
-    bp_templates = [n["bp_template"] for n in seg_summary.summaries]
+    bp_templates = [neuron_summary["bp_template"] for neuron_summary in seg_summary.summaries]
     if sort_info["verbose"]:
         print(
             "Removing confused pairs reduced number of templates to", len(bp_templates)

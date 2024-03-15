@@ -233,14 +233,14 @@ class SegSummary(object):
             self.sort_info["bp_chan_snr"] <= 0
         ):
             return None
-        for n in self.summaries:
+        for neuron_summary in self.summaries:
             for chan in range(0, self.sort_info["n_channels"]):
-                if n["snr_by_chan"][chan] < self.sort_info["bp_chan_snr"]:
+                if neuron_summary["snr_by_chan"][chan] < self.sort_info["bp_chan_snr"]:
                     chan_win = [
                         self.sort_info["n_samples_per_chan"] * chan,
                         self.sort_info["n_samples_per_chan"] * (chan + 1),
                     ]
-                    n["bp_template"][chan_win[0] : chan_win[1]] = 0
+                    neuron_summary["bp_template"][chan_win[0] : chan_win[1]] = 0
         return None
 
     def set_bp_templates(self, bp_templates):
@@ -257,8 +257,8 @@ class SegSummary(object):
                 for t in range(0, bp_templates.shape[0]):
                     templates_list.append(bp_templates[t, :])
                 bp_templates = templates_list
-        for ind, n in enumerate(self.summaries):
-            n["bp_template"] = bp_templates[ind]
+        for ind, neuron_summary in enumerate(self.summaries):
+            neuron_summary["bp_template"] = bp_templates[ind]
         self.zero_low_snr_chans()
 
     def make_summaries(self):
@@ -266,115 +266,112 @@ class SegSummary(object):
         a new class attribute 'summaries'.
         """
         self.summaries = []
-        for n_wi in range(0, self.n_items):
-            if len(self.sort_data[n_wi][0]) == 0:
+        for work_item_index in range(0, self.n_items):
+            if len(self.sort_data[work_item_index][0]) == 0:
                 # No data for this item
                 continue
             if (
-                self.sort_data[n_wi][2].shape[1]
+                self.sort_data[work_item_index][2].shape[1]
                 != self.sort_info["n_samples_per_chan"] * self.sort_info["n_channels"]
             ):
                 raise ValueError("Clips must include data for all channels")
-            cluster_labels = np.unique(self.sort_data[n_wi][1])
+            cluster_labels = np.unique(self.sort_data[work_item_index][1])
             for neuron_label in cluster_labels:
-                neuron = {}
-                neuron["summary_type"] = "single_segment"
-                neuron["channel"] = self.work_items[n_wi]["channel"]
-                neuron["neighbors"] = self.work_items[n_wi]["neighbors"]
-                # This assumes that input has all channels in order!
-                neuron["main_win"] = [
-                    self.sort_info["n_samples_per_chan"] * neuron["channel"],
-                    self.sort_info["n_samples_per_chan"] * (neuron["channel"] + 1),
-                ]
-                neuron["threshold"] = self.work_items[n_wi]["thresholds"][
-                    neuron["channel"]
-                ]
 
-                select_label = self.sort_data[n_wi][1] == neuron_label
-                neuron["spike_indices"] = self.sort_data[n_wi][0][select_label]
-                neuron["clips"] = self.sort_data[n_wi][2][select_label, :]
+                neuron = self.create_neuron_summary(work_item_index, neuron_label)
 
-                # NOTE: This still needs to be done even though segments
-                # were ordered because of overlap!
-                # Ensure spike times are ordered. Must use 'stable' sort for
-                # output to be repeatable because overlapping segments and
-                # binary pursuit can return slightly different dupliate spikes
-                spike_order = np.argsort(neuron["spike_indices"], kind="stable")
-                neuron["spike_indices"] = neuron["spike_indices"][spike_order]
-                neuron["clips"] = neuron["clips"][spike_order, :]
-
-                # Set duplicate tolerance as full clip width since we are only
-                # looking to get a good template here
-                neuron["duplicate_tol_inds"] = self.full_clip_inds
-
-                # Remove any identical index duplicates (either from error or
-                # from combining overlapping segments), preferentially keeping
-                # the waveform best aligned to the template
-                neuron["template"] = np.median(neuron["clips"], axis=0).astype(
-                    neuron["clips"].dtype
-                )
-                keep_bool = remove_spike_event_duplicates(
-                    neuron["spike_indices"],
-                    neuron["clips"],
-                    neuron["template"],
-                    tol_inds=neuron["duplicate_tol_inds"],
-                )
-                neuron["spike_indices"] = neuron["spike_indices"][keep_bool]
-                neuron["clips"] = neuron["clips"][keep_bool, :]
-
-                # Recompute template and store output
-                neuron["template"] = np.median(neuron["clips"], axis=0).astype(
-                    neuron["clips"].dtype
-                )
-                # Get SNR for each channel separately
-                neuron["snr_by_chan"] = np.zeros(self.sort_info["n_channels"])
-                for chan in range(0, self.sort_info["n_channels"]):
-                    # Reset window and threshold that will be used by get_snr
-                    neuron["main_win"] = [
-                        self.sort_info["n_samples_per_chan"] * chan,
-                        self.sort_info["n_samples_per_chan"] * (chan + 1),
-                    ]
-                    neuron["threshold"] = self.work_items[n_wi]["thresholds"][chan]
-                    neuron["snr_by_chan"][chan] = self.get_snr(neuron)
-                    if chan == neuron["channel"]:
-                        neuron["snr"] = neuron["snr_by_chan"][chan]
-
-                # Reset these to actual values. We still keep channel based on
-                # the work item that found this neuron.
-                neuron["main_win"] = [
-                    self.sort_info["n_samples_per_chan"] * neuron["channel"],
-                    self.sort_info["n_samples_per_chan"] * (neuron["channel"] + 1),
-                ]
-                neuron["threshold"] = self.work_items[n_wi]["thresholds"][
-                    neuron["channel"]
-                ]
-                if neuron["snr"] < 1.5:
+                if len(neuron["high_snr_neighbors"]) == 0:
+                    # Neuron is total trash so don't even append to summaries
+                    continue
+                elif neuron["snr"] < 1.5:
                     # SNR this low indicates true garbage that will only slow
                     # binary pursuit so skip it outright
                     # Remember that SNR can only go down from here as binary
                     # pursuit can add spikes that didn't cross threshold
                     continue
 
-                # Preserve template over full neighborhood for certain comparisons
-                neuron["full_template"] = np.copy(neuron["template"])
-                # Set new neighborhood of all channels with SNR over SNR threshold.
-                # This will be used for align shifting and merge testing
-                # NOTE: This new neighborhood only applies for use internally
-                high_snr_neighbors = []
-                for chan in range(0, self.sort_info["n_channels"]):
-                    if neuron["snr_by_chan"][chan] > 0.5:
-                        high_snr_neighbors.append(chan)
-
-                if len(high_snr_neighbors) > 0:
-                    neuron["high_snr_neighbors"] = np.array(
-                        high_snr_neighbors, dtype=np.int64
-                    )
-                else:
-                    # Neuron is total trash so don't even append to summaries
-                    continue
-                neuron["deleted_as_redundant"] = False
-
                 self.summaries.append(neuron)
+
+    def create_neuron_summary(self, work_item_index, neuron_label):
+        neuron = {}
+        neuron["summary_type"] = "single_segment"
+        neuron["channel"] = self.work_items[work_item_index]["channel"]
+        neuron["neighbors"] = self.work_items[work_item_index]["neighbors"]
+        # This assumes that input has all channels in order!
+        neuron["main_win"] = [
+            self.sort_info["n_samples_per_chan"] * neuron["channel"],
+            self.sort_info["n_samples_per_chan"] * (neuron["channel"] + 1),
+        ]
+        neuron["threshold"] = self.work_items[work_item_index]["thresholds"][
+            neuron["channel"]
+        ]
+        select_label = self.sort_data[work_item_index][1] == neuron_label
+        neuron["spike_indices"] = self.sort_data[work_item_index][0][select_label]
+        neuron["clips"] = self.sort_data[work_item_index][2][select_label, :]
+        # NOTE: This still needs to be done even though segments
+        # were ordered because of overlap!
+        # Ensure spike times are ordered. Must use 'stable' sort for
+        # output to be repeatable because overlapping segments and
+        # binary pursuit can return slightly different dupliate spikes
+        spike_order = np.argsort(neuron["spike_indices"], kind="stable")
+        neuron["spike_indices"] = neuron["spike_indices"][spike_order]
+        neuron["clips"] = neuron["clips"][spike_order, :]
+        # Set duplicate tolerance as full clip width since we are only
+        # looking to get a good template here
+        neuron["duplicate_tol_inds"] = self.full_clip_inds
+        # Remove any identical index duplicates (either from error or
+        # from combining overlapping segments), preferentially keeping
+        # the waveform best aligned to the template
+        neuron["template"] = np.median(neuron["clips"], axis=0).astype(
+            neuron["clips"].dtype
+        )
+        keep_bool = remove_spike_event_duplicates(
+            neuron["spike_indices"],
+            neuron["clips"],
+            neuron["template"],
+            tol_inds=neuron["duplicate_tol_inds"],
+        )
+        neuron["spike_indices"] = neuron["spike_indices"][keep_bool]
+        neuron["clips"] = neuron["clips"][keep_bool, :]
+        # Recompute template and store output
+        neuron["template"] = np.median(neuron["clips"], axis=0).astype(
+            neuron["clips"].dtype
+        )
+        # Get SNR for each channel separately
+        neuron["snr_by_chan"] = np.zeros(self.sort_info["n_channels"])
+        for chan in range(0, self.sort_info["n_channels"]):
+            # Reset window and threshold that will be used by get_snr
+            neuron["main_win"] = [
+                self.sort_info["n_samples_per_chan"] * chan,
+                self.sort_info["n_samples_per_chan"] * (chan + 1),
+            ]
+            neuron["threshold"] = self.work_items[work_item_index]["thresholds"][chan]
+            neuron["snr_by_chan"][chan] = self.get_snr(neuron)
+            if chan == neuron["channel"]:
+                neuron["snr"] = neuron["snr_by_chan"][chan]
+        # Reset these to actual values. We still keep channel based on
+        # the work item that found this neuron.
+        neuron["main_win"] = [
+            self.sort_info["n_samples_per_chan"] * neuron["channel"],
+            self.sort_info["n_samples_per_chan"] * (neuron["channel"] + 1),
+        ]
+        neuron["threshold"] = self.work_items[work_item_index]["thresholds"][
+            neuron["channel"]
+        ]
+        # Preserve template over full neighborhood for certain comparisons
+        neuron["full_template"] = np.copy(neuron["template"])
+        # Set new neighborhood of all channels with SNR over SNR threshold.
+        # This will be used for align shifting and merge testing
+        # NOTE: This new neighborhood only applies for use internally
+        high_snr_neighbors = []
+        for chan in range(0, self.sort_info["n_channels"]):
+            if neuron["snr_by_chan"][chan] > 0.5:
+                high_snr_neighbors.append(chan)
+        neuron["high_snr_neighbors"] = np.array(
+            high_snr_neighbors, dtype=np.int64
+        )
+        neuron["deleted_as_redundant"] = False
+        return neuron
 
     def find_nearest_shifted_pair(self, remaining_inds, previously_compared_pairs):
         """Alternative to sort_cython.identify_clusters_to_compare that simply
