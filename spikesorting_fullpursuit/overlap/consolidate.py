@@ -156,6 +156,76 @@ def check_template_pair(
     return p_confusion
 
 
+def get_snr(
+    template,
+    threshold,
+    sigma,
+):
+    """
+    Get SNR on the main channel relative to 3 STD of background noise.
+
+    Parameters
+    ----------
+    template: np.ndarray
+        single channel template
+    threshold: float
+        threshold for the channel
+    sigma: float
+        noise standard deviation
+
+    Returns
+    -------
+
+    """
+    background_noise_std = threshold / sigma
+    temp_range = np.amax(template) - np.amin(template)
+    return temp_range / (3 * background_noise_std)
+
+
+def get_snr_across_all_channels(
+    all_channel_template,
+    thresholds,
+    n_channels,
+    n_samples_per_chan,
+    sigma,
+):
+    """
+    Get SNR for each channel for a given neuron
+
+    Parameters
+    ----------
+    all_channel_template: np.ndarray
+        template across all channels. Each channel is n_sample_per_chan
+    thresholds: np.ndarray
+        thresholds for each channel
+    n_channels: int
+        total number of channels
+    n_samples_per_chan: int
+        Number of samples in each channels template
+    sigma: float
+        noise standard deviation
+
+    Returns
+    -------
+
+    """
+    snr_by_channel = np.zeros(n_channels)
+    for chan in range(0, n_channels):
+        this_template_start_ind = n_samples_per_chan * chan
+        this_template_end_ind = n_samples_per_chan * (chan + 1)
+
+        this_channel_threshold = thresholds[
+            chan
+        ]
+
+        snr_by_channel[chan] = get_snr(
+            all_channel_template[this_template_start_ind:this_template_end_ind],
+            this_channel_threshold,
+            sigma,
+        )
+    return snr_by_channel
+
+
 class SegSummary(object):
     """
     Main class that gathers all the sorted data and consolidates it within
@@ -216,19 +286,6 @@ class SegSummary(object):
         )
         self.n_items = len(work_items)
         self.make_summaries()
-
-    def get_snr(
-        self,
-        main_template,
-        threshold,
-        sigma,
-    ):
-        """
-        Get SNR on the main channel relative to 3 STD of background noise.
-        """
-        background_noise_std = threshold / sigma
-        temp_range = np.amax(main_template) - np.amin(main_template)
-        return temp_range / (3 * background_noise_std)
 
     def zero_low_snr_chans(self):
         """Sets bp_template values for channels under bp_chan_snr threshold
@@ -344,20 +401,15 @@ class SegSummary(object):
             neuron["clips"].dtype
         )
         # Get SNR for each channel separately
-        neuron["snr_by_chan"] = np.zeros(self.sort_info["n_channels"])
-        for chan in range(0, self.sort_info["n_channels"]):
+        snr_by_channel = get_snr_across_all_channels(
+            neuron["template"],
+            self.work_items[work_item_index]["thresholds"],
+            self.sort_info["n_channels"],
+            self.sort_info["n_samples_per_chan"],
+            self.sort_info["sigma"],
+        )
 
-            this_template_start_ind = self.sort_info["n_samples_per_chan"] * chan
-            this_template_end_ind = self.sort_info["n_samples_per_chan"] * (chan + 1)
-
-            this_channel_threshold = self.work_items[work_item_index]["thresholds"][chan]
-
-            neuron["snr_by_chan"][chan] = self.get_snr(
-                neuron["template"][this_template_start_ind : this_template_end_ind],
-                this_channel_threshold,
-                self.sort_info["sigma"],
-            )
-
+        neuron["snr_by_chan"] = snr_by_channel
         neuron["snr"] = neuron["snr_by_chan"][neuron["channel"]]
 
         # Preserve template over full neighborhood for certain comparisons
