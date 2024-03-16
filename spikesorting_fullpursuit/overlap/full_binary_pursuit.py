@@ -32,21 +32,15 @@ def get_binary_pursuit_clip_width(
     # Maximim factor by which the clip width can be increased
     if sort_info["max_binary_pursuit_clip_width_factor"] <= 1.0:
         # Do not use expanded clip widths, just return
-        original_clip_starts = np.arange(
-            0,
-            sort_info["n_samples_per_chan"] * (sort_info["n_channels"]),
+        (
+            bp_clip_width,
+            original_clip_starts,
+            original_clip_stops,
+        ) = get_original_clip_width_start_stop(
             sort_info["n_samples_per_chan"],
-            dtype=np.int64,
+            sort_info["n_channels"],
+            sort_info["clip_width"],
         )
-        original_clip_stops = np.arange(
-            sort_info["n_samples_per_chan"],
-            (sort_info["n_samples_per_chan"] + 1) * sort_info["n_channels"],
-            sort_info["n_samples_per_chan"],
-            dtype=np.int64,
-        )
-
-        bp_cw_max = max(np.abs(sort_info["clip_width"]))
-        bp_clip_width = [-1 * bp_cw_max, bp_cw_max]
         return bp_clip_width, original_clip_starts, original_clip_stops
 
     # Start by building the set of all clips for all units in segment
@@ -59,21 +53,15 @@ def get_binary_pursuit_clip_width(
             all_events.append(data_dict["results_dict"][w_item["ID"]][0])
     if len(all_events) == 0:
         # No events found so just return input clip width
-        original_clip_starts = np.arange(
-            0,
-            sort_info["n_samples_per_chan"] * (sort_info["n_channels"]),
+        (
+            bp_clip_width,
+            original_clip_starts,
+            original_clip_stops,
+        ) = get_original_clip_width_start_stop(
             sort_info["n_samples_per_chan"],
-            dtype=np.int64,
+            sort_info["n_channels"],
+            sort_info["clip_width"],
         )
-        original_clip_stops = np.arange(
-            sort_info["n_samples_per_chan"],
-            (sort_info["n_samples_per_chan"] + 1) * sort_info["n_channels"],
-            sort_info["n_samples_per_chan"],
-            dtype=np.int64,
-        )
-        # Make clip_width symmetric
-        bp_cw_max = max(np.abs(sort_info["clip_width"]))
-        bp_clip_width = [-1 * bp_cw_max, bp_cw_max]
         return bp_clip_width, original_clip_starts, original_clip_stops
 
     all_events = np.hstack(all_events)
@@ -90,23 +78,19 @@ def get_binary_pursuit_clip_width(
         all_events,
         clip_width_s=bp_clip_width,
     )
+
     if np.count_nonzero(valid_event_indices) == 0:
-        original_clip_starts = np.arange(
-            0,
-            sort_info["n_samples_per_chan"] * (sort_info["n_channels"]),
+        (
+            bp_clip_width,
+            original_clip_starts,
+            original_clip_stops,
+        ) = get_original_clip_width_start_stop(
             sort_info["n_samples_per_chan"],
-            dtype=np.int64,
+            sort_info["n_channels"],
+            sort_info["clip_width"],
         )
-        original_clip_stops = np.arange(
-            sort_info["n_samples_per_chan"],
-            (sort_info["n_samples_per_chan"] + 1) * sort_info["n_channels"],
-            sort_info["n_samples_per_chan"],
-            dtype=np.int64,
-        )
-        # Make clip_width symmetric
-        bp_cw_max = max(np.abs(sort_info["clip_width"]))
-        bp_clip_width = [-1 * bp_cw_max, bp_cw_max]
         return bp_clip_width, original_clip_starts, original_clip_stops
+
     mean_clip = np.mean(all_clips, axis=0)
     bp_samples_per_chan = all_clips.shape[1] // sort_info["n_channels"]
     first_indices = np.arange(
@@ -195,6 +179,41 @@ def get_binary_pursuit_clip_width(
     bp_cw_max = max(np.abs(bp_clip_width))
     bp_clip_width = [-1 * bp_cw_max, bp_cw_max]
 
+    return bp_clip_width, original_clip_starts, original_clip_stops
+
+
+def get_original_clip_width_start_stop(
+    n_samples_per_chan,
+    n_channels,
+    clip_width,
+):
+    """
+
+    Parameters
+    ----------
+    n_samples_per_chan
+    n_channels
+    clip_width
+
+    Returns
+    -------
+
+    """
+    original_clip_starts = np.arange(
+        0,
+        n_samples_per_chan * (n_channels),
+        n_samples_per_chan,
+        dtype=np.int64,
+    )
+    original_clip_stops = np.arange(
+        n_samples_per_chan,
+        (n_samples_per_chan + 1) * n_channels,
+        n_samples_per_chan,
+        dtype=np.int64,
+    )
+
+    bp_cw_max = max(np.abs(clip_width))
+    bp_clip_width = [-1 * bp_cw_max, bp_cw_max]
     return bp_clip_width, original_clip_starts, original_clip_stops
 
 
@@ -595,7 +614,7 @@ def create_segment_summary(
                 clips_dict,
                 voltage,
                 w_item["neighbors"],
-                data_dict["results_dict"][w_item["ID"]][0],
+                data_dict["results_dict"][w_item["ID"]][0],  # crossings
                 clip_width_s=sort_info["clip_width"],
             )
 
@@ -654,6 +673,7 @@ def assign_bp_clip_width(
     # Store newly assigned binary pursuit clip width for final output
     if "binary_pursuit_clip_width" not in sort_info:
         sort_info["binary_pursuit_clip_width"] = [0, 0]
+
     sort_info["binary_pursuit_clip_width"][0] = min(
         sort_info["clip_width"][0], sort_info["binary_pursuit_clip_width"][0]
     )
@@ -690,7 +710,25 @@ def assign_bp_clip_width(
     return bp_reduction_samples_per_chan, original_clip_starts, original_clip_stops
 
 
-def get_voltage_for_bp(data_dict, seg_number, use_memmap, v_dtype):
+def get_voltage_for_bp(
+    data_dict,
+    seg_number,
+    use_memmap,
+    v_dtype,
+):
+    """
+
+    Parameters
+    ----------
+    data_dict
+    seg_number: int
+    use_memmap: bool
+    v_dtype:
+
+    Returns
+    -------
+
+    """
     if use_memmap:
         voltage_mmap = MemMapClose(
             data_dict["seg_v_files"][seg_number][0],
