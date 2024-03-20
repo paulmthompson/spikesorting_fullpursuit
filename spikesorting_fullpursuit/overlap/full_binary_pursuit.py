@@ -343,7 +343,7 @@ def full_binary_pursuit(
     chan_covariance_mats = get_channel_covariance_matrix(
         clip_template_residuals,
         sort_info["n_channels"],
-        sort_info["n_samples_per_chan"],
+        sort_info["n_samples_per_chan"],  # bp_n_samples_per_chan
         sort_info["n_cov_samples"],
         sort_info["verbose"],
     )
@@ -353,7 +353,7 @@ def full_binary_pursuit(
     # original input chan win (clip_width). This is arbitrary
     templates_to_check = sort_cython.find_overlap_templates(
         bp_templates,
-        sort_info["n_samples_per_chan"],
+        sort_info["n_samples_per_chan"],  # bp_n_samples_per_chan
         sort_info["n_channels"],
         np.int64(np.abs(chan_win[0]) - 1),
         np.int64(np.abs(chan_win[1]) - 1),
@@ -375,7 +375,7 @@ def full_binary_pursuit(
             shift_temp,
             chan_covariance_mats,
             sort_info["n_channels"],
-            sort_info["n_samples_per_chan"],
+            sort_info["n_samples_per_chan"],  # bp_n_samples_per_chan
         )
         if p_confusion > confusion_threshold:
             templates_to_delete[t_ind] = True
@@ -497,7 +497,7 @@ def full_binary_pursuit(
             voltage,
             all_chan_nbrs,
             crossings,
-            clip_width_s=sort_info["clip_width"],
+            clip_width_s=sort_info["clip_width"],  # binary_pursuit_clip_width
         )
 
     if sort_info["output_separability_metrics"]:
@@ -509,7 +509,7 @@ def full_binary_pursuit(
         neuron_labels,
         seg_w_items[0]["thresholds"],
         sort_info["sigma"],
-        sort_info["n_samples_per_chan"],
+        sort_info["n_samples_per_chan"],  # bp_n_samples_per_chan
         sort_info["n_channels"],
     )
 
@@ -789,6 +789,7 @@ def assign_bp_clip_width(
     bp_chan_win, _ = time_window_to_samples(bp_clip_width, sort_info["sampling_rate"])
 
     sort_info["n_samples_per_chan"] = bp_chan_win[1] - bp_chan_win[0]
+
     # This should be same as input samples per chan but could probably
     # be off by one due to rounding error of the clip width so
     # need to recompute
@@ -798,6 +799,7 @@ def assign_bp_clip_width(
         raise RuntimeError(
             "Template reduction from binary pursuit does not have the same number of samples as original!"
         )
+
     if sort_info["verbose"]:
         print(
             "Binary pursuit clip width is",
