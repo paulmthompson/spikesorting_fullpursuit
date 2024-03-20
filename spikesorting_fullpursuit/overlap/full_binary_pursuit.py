@@ -491,6 +491,7 @@ def full_binary_pursuit(
         max_gpu_memory=max_gpu_memory,
     )
 
+    # Returns spike clips after the waveforms of any potentially overlapping spikes have been removed.
     if not sort_info["get_adjusted_clips"]:
         clips, _ = get_clips(
             clips_dict,
