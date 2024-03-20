@@ -507,8 +507,10 @@ def full_binary_pursuit(
     chans_to_template_labels = assign_unit_channel_to_max_snr(
         clips,
         neuron_labels,
-        seg_w_items,
-        sort_info,
+        seg_w_items[0]["thresholds"],
+        sort_info["sigma"],
+        sort_info["n_samples_per_chan"],
+        sort_info["n_channels"],
     )
 
     # Set these back to match input values
@@ -534,22 +536,44 @@ def full_binary_pursuit(
     return seg_data
 
 
-def assign_unit_channel_to_max_snr(clips, neuron_labels, seg_w_items, sort_info):
+def assign_unit_channel_to_max_snr(
+    clips,
+    neuron_labels,
+    thresholds,
+    sigma,
+    n_samples_per_chan,
+    n_channels,
+):
+    """
+
+    Parameters
+    ----------
+    clips:
+    neuron_labels:
+    thresholds:
+    sigma: float
+    n_samples_per_chan: int
+    n_channels: int
+
+    Returns
+    -------
+
+    """
+
     chans_to_template_labels = {}
-    for chan in range(0, sort_info["n_channels"]):
+    for chan in range(0, n_channels):
         chans_to_template_labels[chan] = []
+
     for unit in np.unique(neuron_labels):
         # Find this unit's channel as the channel with max SNR of template
         curr_template = np.mean(clips[neuron_labels == unit, :], axis=0)
         unit_best_snr = -1.0
         unit_best_chan = None
-        for chan in range(0, sort_info["n_channels"]):
-            background_noise_std = (
-                seg_w_items[0]["thresholds"][chan] / sort_info["sigma"]
-            )
+        for chan in range(0, n_channels):
+            background_noise_std = thresholds[chan] / sigma
             chan_win = [
-                sort_info["n_samples_per_chan"] * chan,
-                sort_info["n_samples_per_chan"] * (chan + 1),
+                n_samples_per_chan * chan,
+                n_samples_per_chan * (chan + 1),
             ]
             chan_template = curr_template[chan_win[0] : chan_win[1]]
             temp_range = np.amax(chan_template) - np.amin(chan_template)
@@ -581,9 +605,11 @@ def convert_binary_pursuit_output_to_seg_data(
             if w_item["channel"] == chan:
                 curr_item = w_item
                 break
+
         if curr_item is None:
             # This should never be possible, but just to be sure
             raise RuntimeError("Could not find a matching work item for unit")
+
         if len(chans_to_template_labels[chan]) > 0:
             # Set data to empty defaults and append if they exist
             (
